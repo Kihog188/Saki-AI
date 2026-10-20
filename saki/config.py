@@ -55,6 +55,13 @@ class AppConfig:
     top_p: float = 0.8
     num_ctx: int = 2048
     reply_reserve_tokens: int = 512
+    context_max_turns: int = 3  # recent chat turns sent to the model
+    # Anti-repetition
+    repeat_penalty: float = 1.15
+    repeat_last_n: int = 128  # Ollama only
+    repeat_check_turns: int = 5  # compare a new reply with the last N replies
+    repeat_similarity: float = 0.9  # >= this ratio counts as "the same reply"
+    retry_temperature: float = 0.7  # one regeneration, without history
     llm_read_timeout: float = 120.0  # max seconds between two streamed chunks
     llm_total_timeout: float = 300.0  # max seconds for a whole reply
 

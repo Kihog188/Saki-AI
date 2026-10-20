@@ -17,22 +17,27 @@ class FakeBackend(LLMBackend):
         chunk_size: int = 3,
         delay: float = 0.0,
         error: Exception | None = None,
+        replies: list[str] | None = None,
     ):
         super().__init__("fake")
         self.reply = reply
+        self.replies = list(replies or [])  # if set, consumed one per call before `reply`
         self.chunk_size = chunk_size
         self.delay = delay
         self.error = error
         self.calls: list[list[dict]] = []
+        self.params: list[GenParams] = []
 
     async def stream_chat(self, messages: list[dict], params: GenParams) -> AsyncIterator[str]:
         self.calls.append(messages)
+        self.params.append(params)
         if self.error is not None:
             raise self.error
-        for i in range(0, len(self.reply), self.chunk_size):
+        reply = self.replies.pop(0) if self.replies else self.reply
+        for i in range(0, len(reply), self.chunk_size):
             if self.delay:
                 await asyncio.sleep(self.delay)
-            yield self.reply[i : i + self.chunk_size]
+            yield reply[i : i + self.chunk_size]
 
     async def health(self) -> dict:
         return {"reachable": self.error is None, "model_available": True, "detail": ""}

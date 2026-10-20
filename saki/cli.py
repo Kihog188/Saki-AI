@@ -54,11 +54,18 @@ def render_event(ev: dict, p: Printer) -> None:
         p.out(ev.get("text", ""), end="")
     elif kind == "end":
         p.out()
-        for s in ev.get("sources") or []:
+        sources = ev.get("sources") or []
+        for s in sources:
             extra = " (paywall)" if s.get("paywalled") else ""
             date = s.get("date") or "không rõ ngày"
-            p.out(p.dim(f"  [{s['index']}] {s['title']} — {s['url']} ({date}){extra}"))
+            link = s.get("display_url") or s.get("url")
+            p.out(p.dim(f"  [{s['index']}] {s['title']} — {link} ({date}){extra}"))
+        if sources:
+            p.out()  # keep the prompt off the last source line
         p.out(p.yellow("> "), end="")
+    elif kind == "reset":
+        p.out()
+        p.out(p.dim("(câu trả lời bị lặp, Saki trả lời lại...)"))
     elif kind == "error":
         p.out()
         p.out(p.red(f"[lỗi] {ev.get('message')}"))

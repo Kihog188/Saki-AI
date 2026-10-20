@@ -21,6 +21,7 @@ class SearchResult:
     snippet: str = ""
     source: str = ""  # name of the source definition that produced it
     paywalled: bool = False
+    lang: str = ""  # language of the source definition ("vi", "en")
     extra: dict = field(default_factory=dict)
 
 
@@ -31,6 +32,11 @@ def domain_of(url: str) -> str:
     except ValueError:
         return ""
     return host[4:] if host.startswith("www.") else host
+
+
+def is_redirect_link(url: str) -> bool:
+    """Google News article links are opaque redirects, not the publisher's URL."""
+    return domain_of(url).startswith("news.google.")
 
 
 def strip_html(text: str) -> str:

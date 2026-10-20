@@ -12,6 +12,8 @@ class GenParams:
     temperature: float = 0.3
     top_p: float = 0.8
     num_ctx: int = 2048
+    repeat_penalty: float = 1.15
+    repeat_last_n: int = 128
     stop: tuple[str, ...] = field(default=("<|im_end|>",))
 
 

@@ -43,6 +43,8 @@ class OllamaBackend(LLMBackend):
                 "temperature": params.temperature,
                 "top_p": params.top_p,
                 "num_ctx": params.num_ctx,
+                "repeat_penalty": params.repeat_penalty,
+                "repeat_last_n": params.repeat_last_n,
                 "stop": list(params.stop),
             },
         }

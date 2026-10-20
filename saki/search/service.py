@@ -59,5 +59,6 @@ def create_search_service(cfg: AppConfig) -> tuple[SearchService, httpx.AsyncCli
         FeedFetcher(client, ttl=cfg.feed_cache_ttl),
         ddg,
         source_timeout=cfg.news_source_timeout,
+        limit=cfg.max_search_results,
     )
     return SearchService(ddg, aggregator, ttl=cfg.search_cache_ttl), client

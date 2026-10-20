@@ -48,6 +48,8 @@ async def test_ollama_streams_and_sends_params():
         "temperature": 0.3,
         "top_p": 0.8,
         "num_ctx": 2048,
+        "repeat_penalty": 1.15,
+        "repeat_last_n": 128,
         "stop": ["<|im_end|>"],
     }
     await b.aclose()
@@ -108,6 +110,7 @@ async def test_llamacpp_streams_sse():
     assert seen["path"] == "/v1/chat/completions"
     assert seen["body"]["stream"] is True
     assert seen["body"]["temperature"] == 0.3 and seen["body"]["top_p"] == 0.8
+    assert seen["body"]["repeat_penalty"] == 1.15
     assert seen["body"]["stop"] == ["<|im_end|>"]
 
 

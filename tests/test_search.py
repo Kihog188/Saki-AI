@@ -90,6 +90,46 @@ def test_query_terms_and_matching():
     item = SearchResult("GIÁ VÀNG tăng", "u", "s", snippet="")
     assert matches_query(item, query_terms("giá vàng"))
     assert not matches_query(item, query_terms("giá xăng"))
+
+
+def test_rss_keyword_must_be_in_title():
+    # Real case: "/news thời tiết" matched a celebrity story through its summary.
+    off_topic = SearchResult(
+        "Selena Gomez thừa nhận giọng nói bị biến đổi", "u", "thanhnien.vn",
+        snippet="Thời tiết lạnh khiến giọng cô khàn hơn.",
+    )
+    on_topic = SearchResult("Dự báo thời tiết ngày mai 21.10", "u2", "laodong.vn", snippet="")
+    terms = query_terms("thời tiết")
+    assert not matches_query(off_topic, terms)
+    assert matches_query(on_topic, terms)
+
+
+def _src(title, url, source, lang="vi", d=TODAY):
+    r = SearchResult(title, url, domain_of(url), d)
+    r.source, r.lang = source, lang
+    return r
+
+
+def test_rank_caps_two_results_per_source():
+    titles = ["Bão Champi mạnh lên", "Mưa lớn ở miền Trung", "Lũ quét tại Lào Cai", "Rét đậm ở Hà Nội", "Nắng nóng Nam Bộ"]
+    items = [_src(t, f"https://laodong.vn/{i}", "Google News (VN)") for i, t in enumerate(titles)]
+    items.append(_src("Áp thấp nhiệt đới gần Biển Đông", "https://vnexpress.net/x", "VnExpress", d=date(2026, 10, 18)))
+    picked = rank(items, TODAY)
+    assert [r.source for r in picked].count("Google News (VN)") == 2
+    assert "VnExpress" in [r.source for r in picked]
+
+
+def test_rank_prefers_vietnamese_sources():
+    items = [
+        _src("Fed holds rates steady", "https://reuters.com/a", "Reuters", lang="en"),
+        _src("Gold slips as dollar firms", "https://apnews.com/b", "AP News", lang="en"),
+        _src("Fed giữ nguyên lãi suất", "https://vnexpress.net/c", "VnExpress", d=date(2026, 10, 17)),
+        _src("Lãi suất Fed và thị trường", "https://dantri.com.vn/d", "Dân Trí", d=date(2026, 10, 16)),
+        _src("Wall Street rallies", "https://wsj.com/e", "Wall Street Journal", lang="en"),
+    ]
+    picked = rank(items, TODAY, limit=4)
+    assert [r.lang for r in picked] == ["vi", "vi", "en", "en"]
+    assert [r.title for r in picked][:2] == ["Fed giữ nguyên lãi suất", "Lãi suất Fed và thị trường"]
     # whole-word match: "vang" must not match "vangs"
     assert not matches_query(SearchResult("gia vangs", "u", "s"), ["gia", "vang"])
 
@@ -237,6 +277,10 @@ async def test_news_aggregator_merges_filters_dedupes_and_tolerates_failures():
     titles = [r.title for r in results]
     # bóng đá filtered out; Tuổi Trẻ duplicate title removed; old item dropped (recent ones exist)
     assert titles == ["Giá vàng hôm nay tăng mạnh", "Giá vàng thế giới lập đỉnh", "Giá vàng DDG"]
+    # items are tagged with their source definition
+    assert [(r.source, r.lang) for r in results] == [
+        ("VnExpress", "vi"), ("Google News (VN)", "vi"), ("DuckDuckGo News", "vi")
+    ]
     assert all("disabled.example" not in u for u in requested)
     reuters = [u for u in requested if "reuters" in u][0]
     assert "hl=en-US" in reuters and "gl=US" in reuters

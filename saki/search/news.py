@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
@@ -22,6 +23,7 @@ log = logging.getLogger(__name__)
 DEFAULT_SOURCES_FILE = Path(__file__).with_name("sources.json")
 RECENT_DAYS = 7
 TITLE_SIMILARITY = 0.9
+MAX_PER_SOURCE = 2
 
 # Filler words ignored when matching a query against RSS items (accent-folded).
 STOPWORDS = frozenset(
@@ -67,10 +69,14 @@ def query_terms(query: str) -> list[str]:
 
 
 def matches_query(item: SearchResult, terms: list[str]) -> bool:
-    """Accent-insensitive: every query term must appear as a word in title + snippet."""
+    """Accent-insensitive: every query term must appear as a word in the title.
+
+    The summary is ignored on purpose: matching on it let unrelated articles in
+    (e.g. a celebrity story for "/news thời tiết").
+    """
     if not terms:
         return False
-    haystack = f" {fold_words(item.title + ' ' + item.snippet)} "
+    haystack = f" {fold_words(item.title)} "
     return all(f" {t} " in haystack for t in terms)
 
 
@@ -99,11 +105,32 @@ def sort_newest_first(items: list[SearchResult]) -> list[SearchResult]:
     return dated + [r for r in items if not r.date]
 
 
-def rank(items: list[SearchResult], today: date, recent_days: int = RECENT_DAYS) -> list[SearchResult]:
-    """Newest first, deduplicated; only recent items if there are any."""
+def rank(
+    items: list[SearchResult],
+    today: date,
+    recent_days: int = RECENT_DAYS,
+    limit: int = 4,
+    per_source: int = MAX_PER_SOURCE,
+) -> list[SearchResult]:
+    """Pick the results to send to the model.
+
+    Deduplicated, recent items only if there are any, Vietnamese sources first
+    (newest first within each language group), at most `per_source` per source.
+    """
     items = dedupe(sort_newest_first(items))
     recent = [r for r in items if r.date and 0 <= (today - r.date).days <= recent_days]
-    return recent or items
+    items = recent or items
+    items = sorted(items, key=lambda r: r.lang != "vi")  # stable: keeps date order
+    picked: list[SearchResult] = []
+    per: Counter[str] = Counter()
+    for r in items:
+        if per[r.source] >= per_source:
+            continue
+        per[r.source] += 1
+        picked.append(r)
+        if len(picked) >= limit:
+            break
+    return picked
 
 
 class NewsAggregator:
@@ -114,12 +141,14 @@ class NewsAggregator:
         ddg: DdgClient | None,
         source_timeout: float = 6.0,
         today: Callable[[], date] = date.today,
+        limit: int = 4,
     ):
         self.config = config
         self.fetcher = fetcher
         self.ddg = ddg
         self.source_timeout = source_timeout
         self.today = today
+        self.limit = limit
 
     @property
     def enabled_sources(self) -> list[SourceDef]:
@@ -144,7 +173,12 @@ class NewsAggregator:
 
     async def _safe(self, src: SourceDef, query: str) -> list[SearchResult]:
         try:
-            return await asyncio.wait_for(self._from_source(src, query), self.source_timeout)
+            items = await asyncio.wait_for(self._from_source(src, query), self.source_timeout)
+            for it in items:  # tag with the source definition (used by `rank`)
+                it.source = src.name
+                it.lang = src.lang
+                it.paywalled = it.paywalled or src.paywalled
+            return items
         except asyncio.TimeoutError:
             log.warning("News source %s timed out", src.name)
         except Exception as exc:
@@ -155,4 +189,4 @@ class NewsAggregator:
         batches = await asyncio.gather(*(self._safe(s, query) for s in self.enabled_sources))
         merged = [it for batch in batches for it in batch]
         log.info("News search: %d raw items from %d sources", len(merged), len(batches))
-        return rank(merged, self.today())
+        return rank(merged, self.today(), limit=self.limit)

@@ -1,0 +1,118 @@
+{
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SakiCompanion/0.1 (local desktop assistant)",
+  "google_news_url": "https://news.google.com/rss/search?q={query}&hl={hl}&gl={gl}&ceid={ceid}",
+  "sources": [
+    {
+      "name": "VnExpress",
+      "type": "rss",
+      "url": "https://vnexpress.net/rss/tin-moi-nhat.rss",
+      "lang": "vi",
+      "enabled": true,
+      "note": "Verified 2026-10-19: HTTP 200, ~50 items, RFC 822 dates."
+    },
+    {
+      "name": "Tuổi Trẻ",
+      "type": "rss",
+      "url": "https://tuoitre.vn/rss/tin-moi-nhat.rss",
+      "lang": "vi",
+      "enabled": true,
+      "note": "Verified 2026-10-19: redirects to https://tuoitre.vn/home.rss; dates use 'MM/DD/YYYY hh:mm:ss AM' (handled by a fallback parser)."
+    },
+    {
+      "name": "Thanh Niên",
+      "type": "rss",
+      "url": "https://thanhnien.vn/rss/home.rss",
+      "lang": "vi",
+      "enabled": true,
+      "note": "Verified 2026-10-19: HTTP 200, ~60 items."
+    },
+    {
+      "name": "Dân Trí",
+      "type": "rss",
+      "url": "https://dantri.com.vn/rss/home.rss",
+      "lang": "vi",
+      "enabled": true,
+      "note": "Verified 2026-10-19: HTTP 200, ~100 items."
+    },
+    {
+      "name": "VietnamNet",
+      "type": "rss",
+      "url": "https://vietnamnet.vn/tin-tuc-24h.rss",
+      "lang": "vi",
+      "enabled": true,
+      "note": "Verified 2026-10-19: HTTP 200, ~25 items."
+    },
+    {
+      "name": "VietnamNet (tin-moi-nhat)",
+      "type": "rss",
+      "url": "https://vietnamnet.vn/rss/tin-moi-nhat.rss",
+      "lang": "vi",
+      "enabled": false,
+      "note": "DISABLED: returned HTTP 404 on 2026-10-19. Replaced by tin-tuc-24h.rss above."
+    },
+    {
+      "name": "Google News (VN)",
+      "type": "google_news",
+      "lang": "vi",
+      "hl": "vi",
+      "gl": "VN",
+      "ceid": "VN:vi",
+      "enabled": true,
+      "note": "Unofficial, no key. Verified 2026-10-19."
+    },
+    {
+      "name": "Reuters",
+      "type": "google_news",
+      "site": "reuters.com",
+      "lang": "en",
+      "hl": "en-US",
+      "gl": "US",
+      "ceid": "US:en",
+      "enabled": true,
+      "note": "Reuters has no official public RSS; uses Google News with a site: filter. Verified 2026-10-19."
+    },
+    {
+      "name": "AP News",
+      "type": "google_news",
+      "site": "apnews.com",
+      "lang": "en",
+      "hl": "en-US",
+      "gl": "US",
+      "ceid": "US:en",
+      "enabled": true,
+      "note": "AP has no official public RSS; uses Google News with a site: filter. Verified 2026-10-19."
+    },
+    {
+      "name": "Financial Times",
+      "type": "google_news",
+      "site": "ft.com",
+      "lang": "en",
+      "hl": "en-US",
+      "gl": "US",
+      "ceid": "US:en",
+      "paywalled": true,
+      "enabled": true,
+      "note": "Paywalled: titles and snippets only. Verified 2026-10-19."
+    },
+    {
+      "name": "Wall Street Journal",
+      "type": "google_news",
+      "site": "wsj.com",
+      "lang": "en",
+      "hl": "en-US",
+      "gl": "US",
+      "ceid": "US:en",
+      "paywalled": true,
+      "enabled": true,
+      "note": "Paywalled: titles and snippets only. Verified 2026-10-19."
+    },
+    {
+      "name": "DuckDuckGo News",
+      "type": "ddgs_news",
+      "timelimit": "w",
+      "lang": "vi",
+      "enabled": true,
+      "note": "Fallback through the unofficial ddgs package. Verified 2026-10-19."
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Model (quá lớn cho GitHub, để ở Releases)
+*.gguf
+
+# Log
+*.log
+saki_train.jsonl
+saki_test.jsonl
+gen_saki_data.py
+plan/

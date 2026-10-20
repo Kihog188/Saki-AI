@@ -1,0 +1,9 @@
+fastapi==0.148.0
+uvicorn==0.54.0
+httpx==0.28.1
+feedparser==6.0.14
+ddgs==9.16.0
+psutil==7.2.2
+websockets==17.2
+pytest==9.1.1
+pytest-asyncio==1.4.0

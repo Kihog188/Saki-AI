@@ -25,6 +25,40 @@ def test_history_order_limit_and_clear(storage):
     assert storage.get_history() == []
 
 
+def test_history_stores_emotion_and_kind(storage):
+    storage.add_message("user", "/news x", kind="search")
+    storage.add_message("assistant", "Tin.", emotion="thinking", kind="search")
+    storage.add_message("user", "hi")
+    storage.add_message("assistant", "Chào.", emotion="happy")
+    h = storage.get_history()
+    assert [(m["role"], m["emotion"], m["kind"]) for m in h] == [
+        ("user", None, "search"),
+        ("assistant", "thinking", "search"),
+        ("user", None, "chat"),
+        ("assistant", "happy", "chat"),
+    ]
+
+
+def test_migrates_old_messages_table(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL, "
+        "content TEXT NOT NULL, created_at REAL NOT NULL)"
+    )
+    conn.execute("INSERT INTO messages(role, content, created_at) VALUES('user', 'cũ', 0)")
+    conn.commit()
+    conn.close()
+    s = Storage(path)
+    s.add_message("assistant", "mới", emotion="happy")
+    h = s.get_history()
+    assert h[0]["content"] == "cũ" and h[0]["kind"] == "chat" and h[0]["emotion"] is None
+    assert h[1]["emotion"] == "happy"
+    s.close()
+
+
 def test_memory_crud(storage):
     m1 = storage.add_memory("  Tên tôi   là Minh ")
     assert m1.text == "Tên tôi là Minh"

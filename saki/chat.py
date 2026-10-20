@@ -7,13 +7,15 @@ handler in server.py, or a list in tests).
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import date
+from difflib import SequenceMatcher
 
 from .commands import CommandHandler, parse_command
 from .config import AppConfig
-from .context import build_messages
+from .context import build_messages, history_for_context
 from .llm import GenParams, LLMBackend, LLMResponseError, LLMTimeoutError, LLMUnavailableError
 from .postprocess import (
     DEFAULT_EMOTION,
@@ -21,12 +23,14 @@ from .postprocess import (
     build_sources_line,
     finalize_search_reply,
     sources_payload,
+    strip_model_sources,
 )
 from .prompts import build_search_message, render_system_prompt, select_results
 from .search.models import SearchResult
 from .search.service import SearchProvider
 from .settings import SettingsStore
 from .storage import Storage
+from .textnorm import fold_words
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +47,22 @@ ERR_TIMEOUT = "Saki phản hồi quá lâu nên đã dừng lại. Bạn thử l
 ERR_MODEL = "Máy chủ mô hình báo lỗi (có thể chưa có mô hình “{model}”). Hãy kiểm tra cài đặt mô hình."
 ERR_GENERIC = "Có lỗi xảy ra, bạn thử lại nhé."
 ERR_EMPTY = "Tin nhắn trống."
+
+
+def _normalize_reply(text: str) -> str:
+    return fold_words(strip_model_sources(text))
+
+
+def is_near_duplicate(reply: str, previous: list[str], threshold: float = 0.9) -> bool:
+    """True if `reply` is (almost) the same as one of the `previous` replies."""
+    new = _normalize_reply(reply)
+    if not new:
+        return False
+    for old in previous:
+        old_n = _normalize_reply(old)
+        if old_n and SequenceMatcher(None, new, old_n).ratio() >= threshold:
+            return True
+    return False
 
 
 class ChatService:
@@ -62,7 +82,13 @@ class ChatService:
         self._llm = llm
         self.search = search
         self.today = today
-        self.params = GenParams(temperature=cfg.temperature, top_p=cfg.top_p, num_ctx=cfg.num_ctx)
+        self.params = GenParams(
+            temperature=cfg.temperature,
+            top_p=cfg.top_p,
+            num_ctx=cfg.num_ctx,
+            repeat_penalty=cfg.repeat_penalty,
+            repeat_last_n=cfg.repeat_last_n,
+        )
 
     # --- entry point ---------------------------------------------------------
 
@@ -94,7 +120,13 @@ class ChatService:
         return render_system_prompt(s["self_name"], s["user_name"], memories)
 
     def _messages(self, user_message: str, with_history: bool = True) -> list[dict]:
-        history = self.storage.get_history(HISTORY_FETCH_LIMIT) if with_history else []
+        history = (
+            history_for_context(
+                self.storage.get_history(HISTORY_FETCH_LIMIT), self.cfg.context_max_turns
+            )
+            if with_history
+            else []
+        )
         return build_messages(
             self._system_prompt(),
             history,
@@ -105,12 +137,12 @@ class ChatService:
 
     async def _chat_turn(self, text: str, emit: Emit) -> None:
         await emit({"type": "status", "state": "thinking"})
-        result = await self._generate(self._messages(text), emit, strip_sources=False)
+        result = await self._generate_checked(text, with_history=True, emit=emit)
         if result is None:
             return
         emotion, reply, _ = result
         await emit({"type": "end", "emotion": emotion, "text": reply, "sources": [], "system": False})
-        self._remember_turn(text, reply)
+        self._remember_turn(text, reply, emotion, kind="chat")
 
     async def _search_turn(self, raw: str, kind: str, query: str, emit: Emit) -> None:
         await emit({"type": "status", "state": "searching"})
@@ -119,8 +151,7 @@ class ChatService:
         user_message = build_search_message(raw, selected, self.today())
         await emit({"type": "status", "state": "thinking"})
         # Search turns were trained as single-turn conversations: no history here.
-        messages = self._messages(user_message, with_history=False)
-        result = await self._generate(messages, emit, strip_sources=True)
+        result = await self._generate_checked(user_message, with_history=False, emit=emit)
         if result is None:
             return
         emotion, reply, streamed = result
@@ -139,8 +170,8 @@ class ChatService:
                 "system": False,
             }
         )
-        # Keep context small: store the command, not the whole results block.
-        self._remember_turn(raw, final)
+        # Stored for display (GET /history) but never sent back to the model.
+        self._remember_turn(raw, final, emotion, kind="search")
 
     async def _run_search(self, kind: str, query: str) -> list[SearchResult]:
         try:
@@ -151,23 +182,48 @@ class ChatService:
             log.exception("Search failed")
             return []
 
-    def _remember_turn(self, user_text: str, reply: str) -> None:
+    def _remember_turn(self, user_text: str, reply: str, emotion: str, kind: str) -> None:
         if not reply:
             return
-        self.storage.add_message("user", user_text)
-        self.storage.add_message("assistant", reply)
+        self.storage.add_message("user", user_text, kind=kind)
+        self.storage.add_message("assistant", reply, emotion=emotion, kind=kind)
+
+    def _recent_replies(self) -> list[str]:
+        n = self.cfg.repeat_check_turns
+        replies = [m["content"] for m in self.storage.get_history(4 * n) if m["role"] == "assistant"]
+        return replies[-n:]
 
     # --- generation --------------------------------------------------------------
 
+    async def _generate_checked(
+        self, user_message: str, with_history: bool, emit: Emit
+    ) -> tuple[str, str, str] | None:
+        """Generate a reply; if it repeats a recent reply, regenerate once.
+
+        The retry uses a higher temperature and no history. The client gets a
+        `reset` event first, meaning "discard the text streamed so far".
+        """
+        result = await self._generate(self._messages(user_message, with_history), emit)
+        if result is None:
+            return None
+        if not is_near_duplicate(result[1], self._recent_replies(), self.cfg.repeat_similarity):
+            return result
+        log.info("Reply repeats a recent answer; regenerating once")
+        await emit({"type": "reset"})
+        params = dataclasses.replace(self.params, temperature=self.cfg.retry_temperature)
+        return await self._generate(self._messages(user_message, with_history=False), emit, params)
+
     async def _generate(
-        self, messages: list[dict], emit: Emit, strip_sources: bool
+        self, messages: list[dict], emit: Emit, params: GenParams | None = None
     ) -> tuple[str, str, str] | None:
         """Stream one model reply.
 
         Returns (emotion, final text, text as streamed), or None after an error event.
+        Any "Nguồn:" block the model writes is dropped (sources come from the backend).
         """
         llm = self._llm()
-        stream = ReplyStream(strip_sources=strip_sources)
+        params = params or self.params
+        stream = ReplyStream(strip_sources=True)
         started = False
 
         async def start_if_ready() -> None:
@@ -177,7 +233,7 @@ class ChatService:
                 await emit({"type": "start", "emotion": stream.emotion, "system": False})
 
         async def consume() -> None:
-            async for chunk in llm.stream_chat(messages, self.params):
+            async for chunk in llm.stream_chat(messages, params):
                 delta = stream.feed(chunk)
                 await start_if_ready()
                 if delta:

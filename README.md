@@ -85,6 +85,12 @@ Data lives in `%APPDATA%\Saki\` (`~/Library/Application Support/Saki` on macOS,
   "top_p": 0.8,
   "num_ctx": 2048,
   "reply_reserve_tokens": 512,
+  "context_max_turns": 3,
+  "repeat_penalty": 1.15,
+  "repeat_last_n": 128,
+  "repeat_check_turns": 5,
+  "repeat_similarity": 0.9,
+  "retry_temperature": 0.7,
   "llm_read_timeout": 120,
   "llm_total_timeout": 300,
   "search_region": "vn-vi",
@@ -131,9 +137,11 @@ Sending a new `user_message` while a reply is still streaming cancels that reply
 | `{"type":"end","emotion":"happy","text":"...","sources":[...],"system":false}` | final answer. `text` is the authoritative full text |
 | `{"type":"error","message":"..."}` | user-facing Vietnamese error. The turn is over |
 | `{"type":"cancelled"}` | the current turn was cancelled. The turn is over |
+| `{"type":"reset"}` | the reply just streamed repeated a recent answer. Discard the text shown so far; a new `start` and new `delta`s follow |
 
 Emotions: `neutral`, `happy`, `sad`, `thinking`, `surprised`, `embarrassed`.
-Every turn ends with exactly one `end`, `error` or `cancelled`.
+Every turn ends with exactly one `end`, `error` or `cancelled`. `reset` happens at most
+once per turn.
 
 A normal chat turn:
 
@@ -158,8 +166,26 @@ A search turn. The `Nguồn:` line is added by the backend, not by the model:
 ← {"type":"end","emotion":"neutral",
    "text":"Giá vàng hôm nay tăng nhẹ [1].\n\nNguồn: [1] dantri.com.vn (19/10/2026)",
    "sources":[{"index":1,"title":"Rào cản lớn khiến giá vàng giằng co...","url":"https://dantri.com.vn/...",
-               "site":"dantri.com.vn","date":"2026-10-19","paywalled":false}],
+               "display_url":"https://dantri.com.vn/...","site":"dantri.com.vn","date":"2026-10-19",
+               "paywalled":false}],
    "system":false}
+```
+
+`url` is the link to open. `display_url` is what to show. For Google News results,
+`url` is an opaque `news.google.com` redirect, so `display_url` is the publisher's
+domain (e.g. `laodong.vn`).
+
+A repeated reply, regenerated once:
+
+```json
+→ {"type":"user_message","text":"Khỏe không"}
+← {"type":"status","state":"thinking"}
+← {"type":"start","emotion":"neutral","system":false}
+← {"type":"delta","text":"Không có gì. Anh đang làm việc."}
+← {"type":"reset"}
+← {"type":"start","emotion":"happy","system":false}
+← {"type":"delta","text":"Em khỏe, cảm ơn anh."}
+← {"type":"end","emotion":"happy","text":"Em khỏe, cảm ơn anh.","sources":[],"system":false}
 ```
 
 A command reply (no model involved). Use `system: true` to style it differently:
@@ -185,7 +211,7 @@ When the model server is down:
 | `GET /health` | `{"status":"ok","version":"0.1.0","llm":{"backend":"ollama","model":"saki","reachable":true,"model_available":true,"detail":""},"hardware":{"free_ram_gb":1.83,"tier":"small","model_hint":"qwen2.5-0.5b","warning":null}}` |
 | `GET /settings` | `{"self_name":"Saki","user_name":"bạn","llm_backend":"ollama","model":"saki","port":8765}` |
 | `PUT /settings` | partial body, e.g. `{"self_name":"em","user_name":"anh"}` → new settings plus `"restart_required": bool` (true when the port changed). 400 with a Vietnamese `detail` for invalid values |
-| `GET /history?limit=50` | `{"messages":[{"role":"user","content":"...","created_at":1760890000.0}, ...]}` |
+| `GET /history?limit=50` | `{"messages":[{"role":"assistant","content":"...","emotion":"happy","kind":"chat","created_at":1760890000.0}, ...]}`. `kind` is `chat` or `search`. `emotion` is set on assistant messages |
 | `DELETE /history` | `{"ok":true}` |
 | `GET /memories` | `{"memories":[{"id":1,"text":"...","created_at":...}]}` |
 | `POST /memories` | `{"text":"..."}` → 201 with the memory, or 400 (empty, too long, store full) |
@@ -223,22 +249,31 @@ llama.cpp build for AVX (or a generic build).
   a blank line, `[HÔM NAY: YYYY-MM-DD]`, then `[KẾT QUẢ TÌM KIẾM]` with up to 4 results,
   newest first. This is the same format as the training data. Search turns are sent
   without chat history, because they were trained as single-turn conversations. History
-  stores only the command and the final answer.
+  stores only the command and the final answer, marked `kind: "search"`. These turns are
+  shown in `GET /history` but never sent back to the model.
 - **`/news`** queries every enabled source in parallel (6 s timeout each) and tolerates
-  failures. Sources: VnExpress, Tuổi Trẻ, Thanh Niên, Dân Trí and VietnamNet RSS
-  (filtered by accent-insensitive keyword match), Google News RSS for Vietnam, Google News
-  with `site:` filters for Reuters, AP, FT and WSJ (FT and WSJ are marked `paywalled`),
-  and DuckDuckGo news as a fallback. Results are deduplicated by URL and by
-  near-identical title, and items from the last 7 days are preferred. Feeds are cached
-  for 5 minutes and query results for 10 minutes.
+  failures. Sources: VnExpress, Tuổi Trẻ, Thanh Niên, Dân Trí and VietnamNet RSS (kept
+  only if every query keyword appears in the **title**, accent-insensitive), Google News
+  RSS for Vietnam, Google News with `site:` filters for Reuters, AP, FT and WSJ (FT and
+  WSJ are marked `paywalled`), and DuckDuckGo news as a fallback. Results are
+  deduplicated by URL and by near-identical title. Items from the last 7 days are
+  preferred, sources with `lang: "vi"` come first, and each source contributes at most 2
+  results. Feeds are cached for 5 minutes and query results for 10 minutes.
+- **Repetition control**: `repeat_penalty` 1.15 (Ollama also gets `repeat_last_n` 128),
+  only the last 3 chat turns in context, and if a new reply is nearly identical to one of
+  the last 5 replies, it is regenerated once at temperature 0.7 without history (the
+  client gets a `reset` event).
 - **Post-processing** ([saki/postprocess.py](saki/postprocess.py)) runs on every reply,
   while it streams:
   1. Parse the emotion tag (`neutral` if it is missing).
   2. Strip leaked CJK characters and special tokens.
   3. Rewrite `/nho` to `/rmb` and `/quen` to `/fgt` (the old command names in the training data).
-  4. On search turns, drop any `Nguồn:` block the model wrote; the backend appends its own.
-- **Context**: system prompt, then as many recent turns as fit in `num_ctx` minus a
-  512-token reply reserve (about 3 characters per token), then the current message.
+  4. On every turn, drop any `Nguồn:` block the model wrote. On search turns, the backend
+     appends its own.
+- **Context**: system prompt, then up to the last 3 chat turns (assistant replies get
+  their emotion tag back, e.g. `[happy] ...`, as in training) as far as they fit in
+  `num_ctx` minus a 512-token reply reserve (about 3 characters per token), then the
+  current message.
 
 ## Tests
 

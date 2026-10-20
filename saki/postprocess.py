@@ -9,7 +9,7 @@ import re
 import unicodedata
 from collections.abc import Sequence
 
-from .search.models import SearchResult
+from .search.models import SearchResult, is_redirect_link
 
 EMOTIONS = ("neutral", "happy", "sad", "thinking", "surprised", "embarrassed")
 DEFAULT_EMOTION = "neutral"
@@ -177,6 +177,8 @@ def sources_payload(results: Sequence[SearchResult]) -> list[dict]:
             "index": i,
             "title": r.title,
             "url": r.url,
+            # What to show the user: the publisher's domain for Google News redirects.
+            "display_url": r.site if is_redirect_link(r.url) else r.url,
             "site": r.site,
             "date": r.date.isoformat() if r.date else None,
             "paywalled": r.paywalled,

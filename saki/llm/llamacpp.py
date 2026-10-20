@@ -45,6 +45,7 @@ class LlamaCppBackend(LLMBackend):
             "stream": True,
             "temperature": params.temperature,
             "top_p": params.top_p,
+            "repeat_penalty": params.repeat_penalty,
             "stop": list(params.stop),
         }
         try:

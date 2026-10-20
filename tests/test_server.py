@@ -84,13 +84,114 @@ def test_chat_turn_streams_and_saves_history(env):
     assert sent[-1] == {"role": "user", "content": "Xin chào"}
 
 
-def test_history_is_sent_on_next_turn(env):
-    client, llm, _, _ = env
+def test_history_is_sent_on_next_turn_with_emotion_tag(env):
+    client, llm, _, storage = env
+    llm.replies = ["[happy] Chào bạn.", "[thinking] Để Saki nghĩ."]
     with client.websocket_connect("/ws") as ws:
         turn(ws, "Câu 1")
         turn(ws, "Câu 2")
-    roles = [m["role"] for m in llm.calls[1]]
-    assert roles == ["system", "user", "assistant", "user"]
+    assert llm.calls[1][1:] == [
+        {"role": "user", "content": "Câu 1"},
+        {"role": "assistant", "content": "[happy] Chào bạn."},
+        {"role": "user", "content": "Câu 2"},
+    ]
+    # Stored without the tag (for display), with the emotion in its own column.
+    assert storage.get_history()[1]["content"] == "Chào bạn."
+    assert storage.get_history()[1]["emotion"] == "happy"
+    assert client.get("/history").json()["messages"][1]["emotion"] == "happy"
+
+
+def test_context_is_capped_at_three_turns(env):
+    client, llm, _, _ = env
+    llm.replies = [
+        "[neutral] Hôm nay trời mưa.",
+        "[happy] Mình thích mèo lắm.",
+        "[thinking] Để Saki xem lịch đã.",
+        "[sad] Tiếc quá, hết bánh rồi.",
+        "[surprised] Ồ, thật à?",
+    ]
+    with client.websocket_connect("/ws") as ws:
+        for i in range(5):
+            turn(ws, f"Câu {i}")
+    last = llm.calls[-1]
+    assert [m["content"] for m in last if m["role"] == "user"] == ["Câu 1", "Câu 2", "Câu 3", "Câu 4"]
+
+
+def test_search_turn_not_in_later_context(env):
+    client, llm, search, storage = env
+    search.results = NEWS_RESULTS
+    llm.replies = ["[neutral] Vàng tăng [1].", "[happy] Ừ."]
+    with client.websocket_connect("/ws") as ws:
+        turn(ws, "/news giá vàng")
+        turn(ws, "Cảm ơn")
+    assert llm.calls[1][1:] == [{"role": "user", "content": "Cảm ơn"}]
+    kinds = [(m["content"][:10], m["kind"]) for m in storage.get_history()]
+    assert kinds[0] == ("/news giá ", "search") and kinds[2] == ("Cảm ơn", "chat")
+    # still visible in GET /history
+    assert client.get("/history").json()["messages"][0]["content"] == "/news giá vàng"
+
+
+def test_chat_turn_drops_model_written_sources(env):
+    client, llm, _, storage = env
+    llm.reply = "[neutral] Ăn nhẹ trước khi ngủ.\n\nNguồn: [1] /healthline.com (20/10/2026)"
+    with client.websocket_connect("/ws") as ws:
+        events = turn(ws, "Ngủ không được")
+    assert events[-1]["text"] == "Ăn nhẹ trước khi ngủ."
+    assert "Nguồn" not in deltas(events)
+    assert storage.get_history()[-1]["content"] == "Ăn nhẹ trước khi ngủ."
+
+
+def test_repeated_reply_is_regenerated_once_without_history(env):
+    client, llm, _, storage = env
+    llm.replies = [
+        "[neutral] Không có gì. Anh đang làm việc.",
+        "[neutral] Không có gì, anh đang làm việc.",  # near-identical
+        "[happy] Em khỏe, cảm ơn anh.",
+    ]
+    with client.websocket_connect("/ws") as ws:
+        turn(ws, "Bạn khỏe không")
+        events = turn(ws, "Em khỏe không")
+    types = [e["type"] for e in events]
+    assert "reset" in types
+    after = events[types.index("reset") + 1 :]
+    assert after[0] == {"type": "start", "emotion": "happy", "system": False}
+    assert events[-1]["text"] == "Em khỏe, cảm ơn anh."
+    assert deltas(after).strip() == "Em khỏe, cảm ơn anh."
+    # retry: higher temperature, system + current message only
+    assert llm.params[2].temperature == 0.7
+    assert llm.params[1].temperature == 0.3
+    assert [m["role"] for m in llm.calls[2]] == ["system", "user"]
+    assert storage.get_history()[-1]["content"] == "Em khỏe, cảm ơn anh."
+    assert len(llm.calls) == 3
+
+
+def test_retry_happens_only_once(env):
+    client, llm, _, _ = env
+    llm.reply = "[neutral] Không có gì."
+    with client.websocket_connect("/ws") as ws:
+        turn(ws, "a")
+        events = turn(ws, "b")
+    assert [e["type"] for e in events].count("reset") == 1
+    assert events[-1]["text"] == "Không có gì."
+    assert len(llm.calls) == 3
+
+
+def test_different_reply_is_not_regenerated(env):
+    client, llm, _, _ = env
+    llm.replies = ["[neutral] Hôm nay trời mưa.", "[happy] Mình thích mèo lắm."]
+    with client.websocket_connect("/ws") as ws:
+        turn(ws, "a")
+        events = turn(ws, "b")
+    assert "reset" not in [e["type"] for e in events]
+    assert len(llm.calls) == 2
+
+
+def test_generation_params_include_repeat_penalty(env):
+    client, llm, _, _ = env
+    with client.websocket_connect("/ws") as ws:
+        turn(ws, "hi")
+    assert llm.params[0].repeat_penalty == 1.15
+    assert llm.params[0].repeat_last_n == 128
 
 
 def test_news_turn_uses_exact_prompt_and_backend_sources(env):

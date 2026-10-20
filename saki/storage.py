@@ -22,7 +22,9 @@ CREATE TABLE IF NOT EXISTS messages (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     role       TEXT NOT NULL,
     content    TEXT NOT NULL,
-    created_at REAL NOT NULL
+    created_at REAL NOT NULL,
+    emotion    TEXT,
+    kind       TEXT NOT NULL DEFAULT 'chat'
 );
 CREATE TABLE IF NOT EXISTS memories (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,6 +63,15 @@ class Storage:
         self._lock = threading.Lock()
         with self._lock, self._conn:
             self._conn.executescript(_SCHEMA)
+            self._migrate()
+
+    def _migrate(self) -> None:
+        """Add columns introduced after the first release to existing databases."""
+        cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(messages)")}
+        if "emotion" not in cols:
+            self._conn.execute("ALTER TABLE messages ADD COLUMN emotion TEXT")
+        if "kind" not in cols:
+            self._conn.execute("ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat'")
 
     def close(self) -> None:
         with self._lock:
@@ -88,18 +99,22 @@ class Storage:
 
     # --- conversation history ---------------------------------------------
 
-    def add_message(self, role: str, content: str) -> None:
+    def add_message(
+        self, role: str, content: str, emotion: str | None = None, kind: str = "chat"
+    ) -> None:
+        """`kind` is "chat" or "search" (search turns are kept out of the model context)."""
         with self._lock, self._conn:
             self._conn.execute(
-                "INSERT INTO messages(role, content, created_at) VALUES(?, ?, ?)",
-                (role, content, time.time()),
+                "INSERT INTO messages(role, content, created_at, emotion, kind) VALUES(?, ?, ?, ?, ?)",
+                (role, content, time.time(), emotion, kind),
             )
 
     def get_history(self, limit: int = 50) -> list[dict]:
         """The most recent `limit` messages, oldest first."""
         with self._lock:
             rows = self._conn.execute(
-                "SELECT role, content, created_at FROM messages ORDER BY id DESC LIMIT ?",
+                "SELECT role, content, emotion, kind, created_at FROM messages "
+                "ORDER BY id DESC LIMIT ?",
                 (limit,),
             ).fetchall()
         return [dict(r) for r in reversed(rows)]

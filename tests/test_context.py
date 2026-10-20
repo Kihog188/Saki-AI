@@ -1,4 +1,41 @@
-from saki.context import build_messages, estimate_tokens
+from saki.context import build_messages, estimate_tokens, history_for_context
+
+
+def test_history_for_context_restores_emotion_tags():
+    hist = [
+        {"role": "user", "content": "Chào", "emotion": None, "kind": "chat"},
+        {"role": "assistant", "content": "Chào bạn.", "emotion": "happy", "kind": "chat"},
+        {"role": "assistant", "content": "không có thẻ", "emotion": None, "kind": "chat"},
+    ]
+    out = history_for_context(hist)
+    assert out[1] == {"role": "assistant", "content": "[happy] Chào bạn."}
+    assert out[2] == {"role": "assistant", "content": "không có thẻ"}
+
+
+def test_history_for_context_skips_search_turns():
+    hist = [
+        {"role": "user", "content": "/news vàng", "kind": "search"},
+        {"role": "assistant", "content": "Vàng tăng.\n\nNguồn: [1] a.vn", "emotion": "neutral", "kind": "search"},
+        {"role": "user", "content": "hi", "kind": "chat"},
+        {"role": "assistant", "content": "Ừ.", "emotion": "neutral", "kind": "chat"},
+    ]
+    out = history_for_context(hist)
+    assert [m["content"] for m in out] == ["hi", "[neutral] Ừ."]
+
+
+def test_history_for_context_keeps_last_three_turns():
+    hist = []
+    for i in range(6):
+        hist.append({"role": "user", "content": f"u{i}", "kind": "chat"})
+        hist.append({"role": "assistant", "content": f"a{i}", "emotion": "neutral", "kind": "chat"})
+    out = history_for_context(hist, max_turns=3)
+    assert [m["content"] for m in out] == ["u3", "[neutral] a3", "u4", "[neutral] a4", "u5", "[neutral] a5"]
+    assert history_for_context(hist, max_turns=0) == []
+
+
+def test_history_without_kind_field_counts_as_chat():
+    out = history_for_context([{"role": "user", "content": "x"}])
+    assert out == [{"role": "user", "content": "x"}]
 
 
 def _hist(n, size=30):

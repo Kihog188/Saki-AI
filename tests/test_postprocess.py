@@ -154,11 +154,21 @@ def test_sources_payload():
         "index": 1,
         "title": "A",
         "url": "https://vnexpress.net/a",
+        "display_url": "https://vnexpress.net/a",
         "site": "vnexpress.net",
         "date": "2026-10-19",
         "paywalled": False,
     }
     assert p[2]["date"] is None and p[2]["paywalled"] is True
+
+
+def test_sources_payload_shows_publisher_for_google_news():
+    r = SearchResult(
+        "T", "https://news.google.com/rss/articles/CBMi123?oc=5", "thanhnien.vn", date(2026, 10, 20)
+    )
+    (p,) = sources_payload([r])
+    assert p["display_url"] == "thanhnien.vn"
+    assert p["url"].startswith("https://news.google.com/")  # still clickable
 
 
 @pytest.mark.parametrize(

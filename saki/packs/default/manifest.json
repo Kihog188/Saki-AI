@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "Saki (mặc định)",
+  "author": "Saki",
+  "default": "neutral.svg",
+  "idle_seconds": 10,
+  "emotions": {
+    "neutral": "neutral.svg",
+    "happy": "happy.svg",
+    "sad": "sad.svg",
+    "thinking": "thinking.svg",
+    "surprised": "surprised.svg",
+    "embarrassed": "embarrassed.svg"
+  }
+}

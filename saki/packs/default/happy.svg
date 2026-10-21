@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <title>Saki (placeholder): happy</title>
+  <rect x="6" y="6" width="228" height="228" rx="24" fill="none" stroke="#9aa3b5" stroke-width="2" stroke-dasharray="8 6"/>
+  <circle cx="120" cy="118" r="78" fill="#ffe2cc" stroke="#5b4636" stroke-width="3"/>
+  <path d="M42 112 C42 46 198 46 198 112 C178 86 150 76 120 78 C90 76 62 86 42 112 Z" fill="#4a5578"/>
+  <path d="M82 128 Q92 114 102 128" fill="none" stroke="#2b2b33" stroke-width="5" stroke-linecap="round"/>
+  <path d="M138 128 Q148 114 158 128" fill="none" stroke="#2b2b33" stroke-width="5" stroke-linecap="round"/>
+  <path d="M100 154 Q120 174 140 154" fill="none" stroke="#5b4636" stroke-width="4" stroke-linecap="round"/>
+  <text x="120" y="224" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#9aa3b5">placeholder</text>
+</svg>

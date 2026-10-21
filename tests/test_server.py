@@ -311,7 +311,10 @@ def test_rest_health(env):
 def test_rest_settings(env):
     client, *_ = env
     s = client.get("/settings").json()
-    assert s == {"self_name": "Saki", "user_name": "bạn", "llm_backend": "ollama", "model": "saki", "port": 8765}
+    assert s == {
+        "self_name": "Saki", "user_name": "bạn", "character_pack": "default",
+        "llm_backend": "ollama", "model": "saki", "port": 8765,
+    }
     r = client.put("/settings", json={"self_name": "tớ", "user_name": "cậu"})
     assert r.status_code == 200
     assert r.json()["self_name"] == "tớ" and r.json()["restart_required"] is False

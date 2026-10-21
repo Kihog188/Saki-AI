@@ -26,11 +26,36 @@ ollama list                      # should show saki:latest
 ## Running
 
 ```powershell
-.venv\Scripts\python -m saki                 # server on ws://127.0.0.1:8765/ws
+.venv\Scripts\python -m saki                 # server + web chat page at http://127.0.0.1:8765/
 .venv\Scripts\python -m saki.cli             # terminal client, in a second window
 ```
 
-Server options: `--port N`, `--data-dir DIR`, `--log-level DEBUG|INFO|WARNING|ERROR`.
+Server options: `--port N`, `--data-dir DIR`, `--log-level DEBUG|INFO|WARNING|ERROR`,
+`--no-browser`.
+
+`python -m saki` opens the chat page in the default browser once the server is listening
+(turn this off with `--no-browser` or `"open_browser": false` in `config.json`). If the
+port is already taken by a running Saki, it prints `Saki đang chạy sẵn ở ...` and just
+opens the browser there. If another program holds the port, it prints a Vietnamese
+message and exits with code 1.
+
+## Web chat page
+
+A simple browser UI for daily testing, served by the backend itself at
+`http://127.0.0.1:<port>/` (files in [saki/web/](saki/web/)). Plain HTML, CSS and ES
+modules: no build step, no npm, no CDN, works offline. Godot/Unity will replace it later.
+
+- Character panel (image for the current emotion, status line) and chat panel (streaming
+  replies, Stop button, clickable sources for `/se` and `/news`).
+- **Ghi nhớ** drawer: list, add and delete memories. **Cài đặt** drawer: address pair,
+  model, character pack, and "Xóa lịch sử trò chuyện".
+- The last 50 messages are loaded on open. The page reconnects by itself (1 s, 2 s, 5 s,
+  then every 10 s) when the backend restarts.
+- Enter sends, Shift+Enter adds a line. While Saki is answering, the Send button is
+  disabled; pressing Enter with a new message stops the current answer (the page waits
+  for its `cancelled`, at most 3 s) and then sends the new one.
+- Model output is only ever inserted as text, never as HTML. The page has a strict
+  Content-Security-Policy (same origin only).
 
 In the CLI, type a message or a command. `/cancel` stops the current answer and `/quit`
 exits. Typing a new message while Saki is answering also cancels the old answer.
@@ -68,6 +93,7 @@ Data lives in `%APPDATA%\Saki\` (`~/Library/Application Support/Saki` on macOS,
   saki.db          SQLite: settings, messages (history), memories
   config.json      optional, see below
   logs\saki.log    rotating log, 4 files x 1 MB
+  characters\      optional character packs, see "Gói nhân vật"
 ```
 
 `config.json` is optional. Any key you leave out keeps its default:
@@ -75,12 +101,14 @@ Data lives in `%APPDATA%\Saki\` (`~/Library/Application Support/Saki` on macOS,
 ```json
 {
   "port": 8765,
+  "open_browser": true,
   "llm_backend": "ollama",
   "model": "saki",
   "ollama_url": "http://127.0.0.1:11434",
   "llamacpp_url": "http://127.0.0.1:8080",
   "self_name": "Saki",
   "user_name": "bạn",
+  "character_pack": "default",
   "temperature": 0.3,
   "top_p": 0.8,
   "num_ctx": 2048,
@@ -102,7 +130,7 @@ Data lives in `%APPDATA%\Saki\` (`~/Library/Application Support/Saki` on macOS,
 }
 ```
 
-`self_name`, `user_name`, `llm_backend`, `model` and `port` are defaults only. Values
+`self_name`, `user_name`, `character_pack`, `llm_backend`, `model` and `port` are defaults only. Values
 saved with `/xh` or `PUT /settings` are stored in SQLite and take precedence. The server
 always binds to `127.0.0.1`.
 
@@ -209,17 +237,67 @@ When the model server is down:
 | Method & path | Body / response |
 |---|---|
 | `GET /health` | `{"status":"ok","version":"0.1.0","llm":{"backend":"ollama","model":"saki","reachable":true,"model_available":true,"detail":""},"hardware":{"free_ram_gb":1.83,"tier":"small","model_hint":"qwen2.5-0.5b","warning":null}}` |
-| `GET /settings` | `{"self_name":"Saki","user_name":"bạn","llm_backend":"ollama","model":"saki","port":8765}` |
-| `PUT /settings` | partial body, e.g. `{"self_name":"em","user_name":"anh"}` → new settings plus `"restart_required": bool` (true when the port changed). 400 with a Vietnamese `detail` for invalid values |
+| `GET /settings` | `{"self_name":"Saki","user_name":"bạn","character_pack":"default","llm_backend":"ollama","model":"saki","port":8765}` |
+| `PUT /settings` | partial body, e.g. `{"self_name":"em","user_name":"anh"}` → new settings plus `"restart_required": bool` (true when the port changed). 400 with a Vietnamese `detail` for invalid values, including a `character_pack` that is unknown or invalid |
 | `GET /history?limit=50` | `{"messages":[{"role":"assistant","content":"...","emotion":"happy","kind":"chat","created_at":1760890000.0}, ...]}`. `kind` is `chat` or `search`. `emotion` is set on assistant messages |
 | `DELETE /history` | `{"ok":true}` |
 | `GET /memories` | `{"memories":[{"id":1,"text":"...","created_at":...}]}` |
 | `POST /memories` | `{"text":"..."}` → 201 with the memory, or 400 (empty, too long, store full) |
 | `DELETE /memories/{id}` | `{"ok":true}` or 404 |
+| `GET /characters` | `{"packs":[{"id":"default","name":"Saki (mặc định)","author":"Saki","builtin":true,"valid":true,"error":null}, ...]}`. Invalid user packs are listed with `valid: false` and a Vietnamese `error` |
+| `GET /characters/{pack_id}/manifest` | the validated manifest with image URLs: `{"format":1,"id":"default","name":"...","author":"...","builtin":true,"idle_seconds":10,"default":"/characters/default/files/neutral.svg","emotions":{"neutral":"...","happy":"...",...}}`. All six emotions are present (missing ones point at `default`). 404 with `detail` if the pack is missing or invalid |
+| `GET /characters/{pack_id}/files/{filename}` | one image referenced by the manifest, with the right `Content-Type` and `X-Content-Type-Options: nosniff`. Anything else is 404 |
+| `GET /`, `GET /static/...` | the web chat page |
 
 Hardware tiers by free RAM: under 1.2 GB is `insufficient` (with a warning), 1.2–2.5 GB
 is `small` (0.5B model recommended), above that is `standard` (1.5B). The backend only
 reports the tier; it never switches models by itself.
+
+## Gói nhân vật
+
+Ảnh nhân vật được nạp từ một "gói": một thư mục chứa `manifest.json` và các tệp ảnh.
+Gói `default` có sẵn trong app (ảnh SVG tạm, chỉ là khuôn mặt đơn giản). Để dùng ảnh
+của bạn:
+
+1. Tạo thư mục `%APPDATA%\Saki\characters\<tên-gói>\`. Tên gói chỉ gồm chữ không
+   dấu, số, `-` và `_` (ví dụ `saki-ao-dai`).
+2. Chép ảnh vào thư mục đó và viết `manifest.json`:
+
+   ```json
+   {
+     "format": 1,
+     "name": "Saki",
+     "author": "",
+     "default": "neutral.png",
+     "idle_seconds": 10,
+     "emotions": {
+       "neutral": "neutral.png",
+       "happy": "happy.png",
+       "sad": "sad.png",
+       "thinking": "thinking.png",
+       "surprised": "surprised.png",
+       "embarrassed": "embarrassed.png"
+     }
+   }
+   ```
+
+3. Mở **Cài đặt → Nhân vật** trên trang chat, chọn gói rồi bấm **Lưu**.
+
+Quy tắc:
+
+- `format` phải là `1`. `name` bắt buộc (tối đa 50 ký tự), `author` tùy chọn.
+- `default` là ảnh bắt buộc. Cảm xúc nào không khai báo trong `emotions` sẽ dùng ảnh
+  `default`, nên một gói chỉ có `neutral.png` vẫn chạy được. Khai báo cảm xúc lạ (ngoài
+  6 cảm xúc trên) làm gói không hợp lệ.
+- `idle_seconds` (1–3600, mặc định 10): sau bao nhiêu giây không có gì mới thì nhân vật
+  quay về `neutral`.
+- Chỉ nhận ảnh `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, mỗi ảnh tối đa 5 MB.
+  `manifest.json` tối đa 64 KB. Gói người dùng **không được dùng SVG** (SVG có thể chứa
+  mã script). GIF/WebP động vẫn chạy bình thường. Chưa hỗ trợ sprite sheet.
+- Tên tệp chỉ gồm chữ không dấu, số, `-`, `_` và một dấu chấm trước đuôi. Ảnh phải nằm
+  ngay trong thư mục gói (không dùng thư mục con hay symlink).
+- Gói sai quy tắc vẫn hiện trong danh sách kèm lý do lỗi, nhưng không được nạp. Trang chat
+  khi đó dùng gói `default`. Không thể đặt tên gói là `default` (tên của gói có sẵn).
 
 ## Switching to llama.cpp (`llama-server`)
 
@@ -284,14 +362,44 @@ llama.cpp build for AVX (or a generic build).
 Tests run without network access or Ollama. HTTP is mocked, `FakeBackend` streams canned
 replies, and search sources are faked. They cover exact prompt strings, command parsing,
 the search prompt builder, sources, emotion streaming edge cases, the CJK and command
-rewrites, storage limits, context trimming, the LLM adapters, the news aggregator, and the
-full WebSocket/REST flow.
+rewrites, storage limits, context trimming, the LLM adapters, the news aggregator, the
+full WebSocket/REST flow, the web page and static files, character pack validation and
+file-serving security, and the browser-opening startup logic. A fixture makes any test
+that tries to open a real browser fail.
+
+### Kiểm tra thủ công (trang chat)
+
+Chạy `python -m saki` (Ollama đang chạy, đã có model `saki`), rồi kiểm tra:
+
+- [ ] Trình duyệt tự mở `http://127.0.0.1:8765/`. Trạng thái hiện "Sẵn sàng".
+- [ ] Gửi "Xin chào": chữ hiện dần, ảnh nhân vật chuyển sang "thinking" rồi sang cảm xúc
+      của câu trả lời, khoảng 10 giây sau quay về "neutral".
+- [ ] `/se thời tiết Hà Nội` và `/news giá vàng`: trạng thái "Đang tìm kiếm...", dưới câu
+      trả lời có danh sách nguồn bấm được (mở tab mới), nguồn trả phí có "(trả phí)".
+- [ ] Gửi một câu dài rồi bấm **Dừng**: câu trả lời có "(đã dừng)", nút Gửi dùng lại được.
+- [ ] Đang trả lời thì gõ câu mới và Enter: câu cũ dừng, câu mới được trả lời.
+- [ ] `/rmb Tên tôi là Minh`: tin nhắn hệ thống hiện ra, mở **Ghi nhớ** thấy mục mới.
+      Xóa một mục (có hỏi xác nhận).
+- [ ] **Cài đặt**: đổi xưng hô thành `em` / `anh`, lưu, hỏi Saki một câu xem cách xưng
+      hô. Đổi mô hình sang tên không tồn tại: câu sau báo lỗi bằng tiếng Việt. Đổi lại
+      `saki`.
+- [ ] Tắt backend (Ctrl+C) khi trang đang mở: trạng thái "Mất kết nối với Saki", nút Gửi
+      bị khóa. Chạy lại `python -m saki --no-browser`: trang tự kết nối lại.
+- [ ] Tắt Ollama rồi tải lại trang: trạng thái "Chưa kết nối được với mô hình", gửi tin
+      nhắn thì hiện lỗi tiếng Việt.
+- [ ] Tạo gói `%APPDATA%\Saki\characters\thu\` chỉ có `neutral.png` và `manifest.json`
+      tối thiểu, chọn trong **Cài đặt**: ảnh đó hiện cho mọi cảm xúc.
+- [ ] Thu cửa sổ còn khoảng 360 px: vẫn dùng được, không có thanh cuộn ngang.
+- [ ] Đổi Windows sang chế độ tối: trang đổi màu theo.
+- [ ] Tải lại trang: 50 tin nhắn gần nhất hiện lại.
+- [ ] Chạy `python -m saki` lần thứ hai khi Saki đang chạy: in "Saki đang chạy sẵn ở ..."
+      và mở trang, không có traceback.
 
 ## Project layout
 
 ```
 saki/
-  __main__.py      start the server
+  __main__.py      start the server, open the browser, handle a busy port
   config.py        AppConfig, app-data paths, logging
   settings.py      editable settings (shared by /xh and PUT /settings)
   prompts.py       system prompt + search prompt builders
@@ -299,12 +407,16 @@ saki/
   postprocess.py   emotion tag, cleanup, rewrites, sources, streaming
   context.py       context-window trimming
   chat.py          one chat turn (transport-agnostic)
-  server.py        FastAPI app: /ws + REST
+  server.py        FastAPI app: /ws + REST + web page
+  characters.py    character packs: discovery, validation, safe file lookup
   storage.py       SQLite
   hardware.py      free RAM -> tier; ModelProvisioner interface (TODO)
   cli.py           terminal client
   llm/             base.py, ollama.py, llamacpp.py, fake.py
   search/          models.py, ddg.py, rss.py, news.py, service.py, cache.py, sources.json
+  packs/default/   built-in placeholder pack (manifest.json + one SVG per emotion)
+  web/             index.html, style.css, favicon.svg,
+                   js/ main.js, api.js, chat.js, character.js, panels.js
 tests/
 ```
 

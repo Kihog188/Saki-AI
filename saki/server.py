@@ -6,14 +6,20 @@ import asyncio
 import contextlib
 import json
 import logging
+import mimetypes
+import re
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import date
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import __version__
+from .characters import CharacterStore, PackError
 from .chat import ChatService
 from .config import AppConfig
 from .hardware import recommend_tier
@@ -23,6 +29,20 @@ from .settings import SettingsError, SettingsStore
 from .storage import MemoryLimitError, Storage
 
 log = logging.getLogger(__name__)
+
+WEB_DIR = Path(__file__).parent / "web"
+
+# Windows can map .js to text/plain in the registry, which breaks ES modules.
+for _type, _ext in (("text/javascript", ".js"), ("text/css", ".css"), ("image/svg+xml", ".svg")):
+    mimetypes.add_type(_type, _ext)
+
+HOST_RE = re.compile(r"^[A-Za-z0-9.\-]+(:\d{1,5})?$")
+
+# The page only talks to this server; manifests and model output never become HTML.
+PAGE_CSP = (
+    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
+    "connect-src 'self' ws://{host}; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+)
 
 MEMORY_ERRORS = {
     "empty": "Nội dung ghi nhớ không được để trống.",
@@ -34,6 +54,7 @@ MEMORY_ERRORS = {
 class SettingsUpdate(BaseModel):
     self_name: str | None = None
     user_name: str | None = None
+    character_pack: str | None = None
     llm_backend: str | None = None
     model: str | None = None
     port: int | None = None
@@ -57,6 +78,7 @@ class AppState:
         self.cfg = cfg
         self.storage = storage
         self.settings = SettingsStore(storage, cfg)
+        self.characters = CharacterStore(cfg.data_dir)
         self._owns_llm = llm is None
         s = self.settings.get_all()
         self.llm = llm or create_backend(cfg, s["llm_backend"], s["model"])
@@ -113,6 +135,28 @@ def create_app(
     app = FastAPI(title="Saki backend", version=__version__, lifespan=lifespan)
     app.state.saki = state
 
+    @app.middleware("http")
+    async def common_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers.setdefault("Cache-Control", "no-cache")
+        return response
+
+    # --- web UI ------------------------------------------------------------------
+
+    @app.get("/", include_in_schema=False)
+    async def index(request: Request):
+        host = request.headers.get("host", "")
+        if not HOST_RE.match(host):
+            host = "127.0.0.1"
+        return FileResponse(
+            WEB_DIR / "index.html",
+            media_type="text/html; charset=utf-8",
+            headers={"Content-Security-Policy": PAGE_CSP.format(host=host)},
+        )
+
+    app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
+
     # --- REST -------------------------------------------------------------------
 
     @app.get("/health")
@@ -164,6 +208,27 @@ def create_app(
         if not state.storage.delete_memory(memory_id):
             raise HTTPException(status_code=404, detail="Không tìm thấy ghi nhớ.")
         return {"ok": True}
+
+    # --- character packs ----------------------------------------------------------
+
+    @app.get("/characters")
+    async def list_characters():
+        return {"packs": state.characters.list()}
+
+    @app.get("/characters/{pack_id}/manifest")
+    async def character_manifest(pack_id: str):
+        try:
+            return state.characters.load(pack_id).to_dict()
+        except PackError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from None
+
+    @app.get("/characters/{pack_id}/files/{filename}")
+    async def character_file(pack_id: str, filename: str):
+        try:
+            path, content_type = state.characters.image(pack_id, filename)
+        except PackError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from None
+        return FileResponse(path, media_type=content_type)
 
     # --- WebSocket -------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 # Handoff: Saki backend
 
-Last updated: 2026-10-20. For whoever picks up this repo next. How to run it and the
+Last updated: 2026-10-21. For whoever picks up this repo next. How to run it and the
 frontend protocol are in [README.md](README.md). This file covers the current state,
 what changed recently, and what is still open.
 
@@ -8,10 +8,52 @@ what changed recently, and what is still open.
 
 - Backend MVP works end to end: FastAPI WebSocket `/ws` + REST, Ollama and llama-server
   adapters, `/se` and `/news` search, memories, address pair (`/xh`), dev CLI.
-- `pytest`: 149 tests pass, offline (no network, no Ollama).
+- Web chat page served by the backend at `http://127.0.0.1:8765/` (branch
+  `feature/web-ui`), with character packs. `python -m saki` opens it automatically.
+- `pytest`: 196 tests pass and 1 is skipped (the symlink test needs symlink rights on
+  Windows), offline (no network, no Ollama).
 - Live-tested on the dev machine (i5-3360M, 8 GB RAM) against Ollama model `saki`.
 
-## Changes in this round (from real-use review)
+## Web UI round (`feature/web-ui`)
+
+Spec: `plan/frontend_prompt.md` (not in git). All additive: the WebSocket protocol and
+the old REST endpoints are unchanged.
+
+1. **Web page** in `saki/web/`: plain HTML/CSS/ES modules, no build, no CDN. Modules:
+   `api.js` (REST), `chat.js` (rendering, `Connection` with reconnect, `ChatController`
+   turn state machine), `character.js` (image per emotion, idle return), `panels.js`
+   (memories and settings drawers), `main.js` (wiring, status line). Served at `/` with a
+   strict CSP and at `/static/*`. `.js`/`.css`/`.svg` MIME types are forced because the
+   Windows registry can map `.js` to `text/plain`. (`test_web`)
+2. **Superseding a turn.** The backend gives no turn IDs, and a task cancelled before it
+   starts emits nothing. So the page never overlaps turns: a new message sent while a
+   turn runs first sends `cancel`, waits for that turn's terminal event (at most 3 s, then
+   it ends the turn locally) and only then sends `user_message`. The Stop button uses the
+   same 3 s fallback.
+3. **Character packs** (`saki/characters.py`, built-in `saki/packs/default/`). New
+   endpoints `GET /characters`, `GET /characters/{id}/manifest`,
+   `GET /characters/{id}/files/{filename}`. User packs: strict id/filename regex, raster
+   images only (no SVG), 5 MB per image, 64 KB manifest, files must sit directly in the
+   pack folder (symlinks rejected), and only files referenced by the manifest are
+   served. Packs are re-read on every request (no cache). (`test_characters`)
+4. **New settings/config keys.** `character_pack` (settings + config, validated against
+   valid packs; `GET /settings` now includes it, so `test_rest_settings` was updated
+   for the extra key). `open_browser` (config only) plus `--no-browser`.
+5. **Startup** (`__main__.py`): opens the browser from a thread that waits for
+   `uvicorn.Server.started`. If the port is busy it checks `GET /health`: a running Saki
+   gets the browser opened, anything else gets a Vietnamese message and exit code 1. An
+   autouse fixture in `tests/conftest.py` fails any test that opens a browser.
+   (`test_main`)
+
+Verified in headless Chrome (CDP script against the real app with a fake LLM; not in
+the repo): streaming, a `reset` after a repeated reply (no doubled text), code blocks,
+`/news` sources (dated, paywalled, `javascript:` URL not linked), `/rmb` refreshing the
+memories list, Stop, superseding, settings save and 400 errors, pack switch with
+missing-emotion fallback, history on reload, reconnect after a server restart, 360 px
+width, dark mode, no console errors. **Not verified:** Firefox, and a real Ollama model
+behind the page.
+
+## Changes in the review round (from real-use review)
 
 Each item has tests. Test file in brackets.
 
@@ -83,4 +125,14 @@ Google News items showed publisher domains, and asking "Bạn khỏe không" and
 3. Replace the 0.5B tier hint with a minimum-RAM warning in `hardware.py`.
 4. Model update and rollback flow (manifest with `prompt_version` and
    `min_app_version`). The `ModelProvisioner` interface in `hardware.py` is the hook.
-5. Frontend (Godot/Unity) against the protocol in the README, including `reset`.
+5. Frontend (Godot/Unity) against the protocol in the README, including `reset`. The
+   web page and the character pack format (`format: 1`) are the reference.
+6. Security hardening of the local server: there is no `Origin` check on `/ws` and no
+   `Host` check, so any website open in the browser could connect to
+   `ws://127.0.0.1:8765/ws` (or use DNS rebinding for REST) and read or change chat and
+   memories. Check `Origin`/`Host` against `127.0.0.1`/`localhost` (this predates the
+   web UI; it is not part of the protocol, so it can be added without breaking clients
+   other than browsers on other origins).
+7. The model suggestions in the settings dialog (`saki-lite`, `saki-standard`) come from
+   the spec; they do not exist yet and conflict with the "1.5B only" decision. Replace
+   them once model names are settled.

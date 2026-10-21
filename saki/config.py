@@ -35,16 +35,18 @@ def default_data_dir() -> Path:
 class AppConfig:
     """Static configuration, loaded from `<data_dir>/config.json` if present.
 
-    `self_name`, `user_name`, `llm_backend`, `model` and `port` are only defaults:
-    values saved through /xh or PUT /settings (stored in SQLite) take precedence.
+    `self_name`, `user_name`, `character_pack`, `llm_backend`, `model` and `port` are only
+    defaults: values saved through /xh or PUT /settings (stored in SQLite) take precedence.
     """
 
     data_dir: Path = field(default_factory=default_data_dir)
     port: int = DEFAULT_PORT
+    open_browser: bool = True  # open the web UI when the server starts (`--no-browser` disables)
 
     # Persona defaults
     self_name: str = "Saki"
     user_name: str = "bạn"
+    character_pack: str = "default"  # folder name under <data_dir>/characters, or a built-in pack
 
     # LLM
     llm_backend: str = "ollama"  # "ollama" | "llamacpp"

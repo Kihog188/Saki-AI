@@ -7,7 +7,8 @@ extends RefCounted
 ##
 ## Animation lookup (what a renderer asks for):
 ##   get_animation(emotion, state) -> {"name": String, "frames": Array[Texture2D],
-##                                     "fps": float, "loop": bool}   ({} = use placeholder)
+##       "outlines": Array[PackedVector2Array] (one per frame, 0..1, see AlphaOutline),
+##       "fps": float, "loop": bool}   ({} = use the placeholder)
 ## Fallback chain for a missing or broken entry (spec 6.4):
 ##   requested emotion -> default_emotion -> neutral -> first available -> placeholder.
 
@@ -19,7 +20,7 @@ var dir: String
 ## Longest texture side allowed by the quality tier; larger images are downscaled on load.
 var max_texture_size: int = PackRules.IMPORT_MAX_TEXTURE
 
-var _cache: Dictionary = {} # "emotions/happy" -> Array[Texture2D]
+var _cache: Dictionary = {} # "emotions/happy" -> {"frames": [...], "outlines": [...]}
 var _broken: Dictionary = {} # "emotions/happy" -> true
 
 
@@ -34,11 +35,10 @@ func _init(p_entry: Dictionary, p_manifest: PackManifest, max_texture: int) -> v
 func get_animation(emotion: String, state: StringName = SakiConst.STATE_IDLE) -> Dictionary:
 	var key: String = _pick_key(emotion, state)
 	while key != "":
-		var frames: Array[Texture2D] = _frames_for(key)
-		if not frames.is_empty():
-			var spec: Dictionary = _spec(key)
-			return {"name": key, "frames": frames, "fps": spec["fps"], "loop": spec["loop"]}
-		key = _pick_key(emotion, state) # _frames_for marked it broken: pick again
+		var anim: Dictionary = _animation(key)
+		if not anim.is_empty():
+			return anim
+		key = _pick_key(emotion, state) # _animation marked it broken: pick again
 	return {}
 
 
@@ -78,12 +78,7 @@ func entry_names() -> Dictionary:
 
 ## Loads one named entry for a preview, without the fallback chain.
 func get_named(group: String, name: String) -> Dictionary:
-	var key: String = "%s/%s" % [group, name]
-	var frames: Array[Texture2D] = _frames_for(key)
-	if frames.is_empty():
-		return {}
-	var spec: Dictionary = _spec(key)
-	return {"name": key, "frames": frames, "fps": spec["fps"], "loop": spec["loop"]}
+	return _animation("%s/%s" % [group, name])
 
 
 func is_broken(key: String) -> bool:
@@ -98,8 +93,8 @@ func unload() -> void:
 
 func loaded_texture_count() -> int:
 	var n: int = 0
-	for frames: Array in _cache.values():
-		n += frames.size()
+	for loaded: Dictionary in _cache.values():
+		n += loaded["frames"].size()
 	return n
 
 
@@ -109,52 +104,79 @@ func _spec(key: String) -> Dictionary:
 	return group.get(parts[1], {})
 
 
-func _frames_for(key: String) -> Array[Texture2D]:
+func _animation(key: String) -> Dictionary:
+	var loaded: Dictionary = _load_cached(key)
+	if loaded.is_empty():
+		return {}
+	var spec: Dictionary = _spec(key)
+	return {"name": key, "frames": loaded["frames"], "outlines": loaded["outlines"], "fps": spec["fps"], "loop": spec["loop"]}
+
+
+func _load_cached(key: String) -> Dictionary:
 	if _cache.has(key):
 		return _cache[key]
-	var empty: Array[Texture2D] = []
 	if _broken.has(key):
-		return empty
+		return {}
 	var spec: Dictionary = _spec(key)
-	var frames: Array[Texture2D] = [] if spec.is_empty() else _load_frames(spec)
-	if frames.is_empty():
+	var loaded: Dictionary = {} if spec.is_empty() else _load_frames(spec)
+	if loaded.is_empty():
 		push_warning("Pack '%s': cannot load '%s', using the fallback" % [entry.get("id", "?"), key])
 		_broken[key] = true
-		return empty
-	_cache[key] = frames
-	return frames
+		return {}
+	_cache[key] = loaded
+	return loaded
 
 
-func _load_frames(spec: Dictionary) -> Array[Texture2D]:
-	var out: Array[Texture2D] = []
+## {"frames": Array[Texture2D], "outlines": Array[PackedVector2Array]}, or {} on failure.
+func _load_frames(spec: Dictionary) -> Dictionary:
+	var frames: Array[Texture2D] = []
+	var outlines: Array[PackedVector2Array] = []
 	var files: PackedStringArray = spec["files"]
 	if spec["kind"] == "sheet":
-		var sheet: Texture2D = _load_texture(files[0], int(spec["columns"]), int(spec["rows"]))
-		if sheet == null:
-			return out
-		var cell := Vector2(sheet.get_width() / float(spec["columns"]), sheet.get_height() / float(spec["rows"]))
+		var columns: int = int(spec["columns"])
+		var rows: int = int(spec["rows"])
+		var img: Image = _load_image(files[0], columns, rows)
+		if img == null:
+			return {}
+		var sheet: Texture2D = ImageTexture.create_from_image(img)
+		var cell := Vector2i(img.get_width() / columns, img.get_height() / rows)
 		for i: int in int(spec["frames"]):
+			var origin := Vector2i(i % columns, i / columns) * cell
 			var atlas := AtlasTexture.new()
 			atlas.atlas = sheet
-			atlas.region = Rect2(Vector2(i % int(spec["columns"]), i / int(spec["columns"])) * cell, cell)
+			atlas.region = Rect2(origin, cell)
 			atlas.filter_clip = true # no bleeding from the neighbour cell
-			out.append(atlas)
-		return out
+			frames.append(atlas)
+			outlines.append(_outline(img, Rect2i(origin, cell)))
+		return {"frames": frames, "outlines": outlines}
 	for f: String in files:
-		var tex: Texture2D = _load_texture(f, 1, 1)
-		if tex == null:
-			out.clear()
-			return out
-		out.append(tex)
-	return out
+		var img: Image = _load_image(f, 1, 1)
+		if img == null:
+			return {}
+		frames.append(ImageTexture.create_from_image(img))
+		outlines.append(_outline(img, Rect2i()))
+	return {"frames": frames, "outlines": outlines}
+
+
+static func _outline(img: Image, region: Rect2i) -> PackedVector2Array:
+	if not img.detect_alpha():
+		return AlphaOutline.full_rect()
+	var poly: PackedVector2Array = AlphaOutline.from_image(img, region)
+	return poly if poly.size() >= 3 else AlphaOutline.full_rect()
 
 
 ## Loads one image file, downscaled to max_texture_size (keeping a sheet's grid exact).
-func _load_texture(file: String, columns: int, rows: int) -> Texture2D:
+func _load_image(file: String, columns: int, rows: int) -> Image:
 	var path: String = dir.path_join(file)
 	if path.begins_with("res://"):
 		# Built-in pack: images are imported by Godot (trusted, part of the app).
-		return load(path) as Texture2D if ResourceLoader.exists(path) else null
+		var tex: Texture2D = load(path) as Texture2D if ResourceLoader.exists(path) else null
+		if tex == null:
+			return null
+		var builtin: Image = tex.get_image()
+		if builtin != null and builtin.is_compressed():
+			builtin.decompress()
+		return builtin
 	if PackRules.check_path(file) != "" or not FileAccess.file_exists(path):
 		return null
 	var data: PackedByteArray = FileAccess.get_file_as_bytes(path)
@@ -164,7 +186,9 @@ func _load_texture(file: String, columns: int, rows: int) -> Texture2D:
 	if img == null:
 		return null
 	PackData.fit_image(img, max_texture_size, columns, rows)
-	return ImageTexture.create_from_image(img)
+	if img.get_format() != Image.FORMAT_RGBA8 and img.detect_alpha():
+		img.convert(Image.FORMAT_RGBA8)
+	return img
 
 
 ## Downscales `img` in place so its longest side is <= max_side. For sheets the result

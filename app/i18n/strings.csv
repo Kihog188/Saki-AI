@@ -56,3 +56,8 @@ IMPORT_DONE,Đã nhập gói “{name}”.
 IMPORT_RESIZED,"Đã thu nhỏ {n} ảnh lớn hơn {max} px."
 IMPORT_ERR_REPLACE,Không thay được gói cũ “{id}”. Hãy đóng các chương trình đang mở thư mục gói rồi thử lại.
 IMPORT_ERR_WRITE,Không ghi được vào thư mục gói nhân vật.
+RENDERER_UNSUPPORTED,Loại gói này chưa được hỗ trợ
+TIER_AUTO,Tự động
+TIER_LOW,Thấp
+TIER_MEDIUM,Vừa
+TIER_HIGH,Cao

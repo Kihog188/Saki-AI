@@ -16,8 +16,8 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 |---|---|---|
 | 1 | Backend: remove web UI and `/characters`, `protocol_version`, `/history?before=`, `POST /shutdown` | done |
 | 2 | Godot project skeleton: `core/` (EventBus, constants), `App` composition root, settings service + migration, translations, GUT setup | done |
-| 3 | Packs: manifest parser/validator, zip validator, importer (thread), index cache, loader, fallback chain, test-pack generator | done (not committed) |
-| 4 | Renderers: base class, registry, placeholder, 2d, unsupported fallback | todo |
+| 3 | Packs: manifest parser/validator, zip validator, importer (thread), index cache, loader, fallback chain, test-pack generator | done |
+| 4 | Renderers: base class, registry, placeholder, 2d, unsupported fallback | done (not committed) |
 | 5 | Backend service: process manager, `BackendClient` (fake transport in tests), reconnect | todo |
 | 6 | Performance: tier resources, auto selection, FPS controller, debug overlay | todo |
 | 7 | Shared UI components: message list (paging, node cap), bubble, sources, input, status, memories, settings, pack manager | todo |
@@ -25,10 +25,10 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 | 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | todo |
 | 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | todo |
 
-Where it stopped (paused by the owner, 2026-10-25): stages 1 and 2 are committed locally
-(`d98e550`, `1fc2863`, not pushed). Stage 3 is finished and tested but **not committed**:
-the owner commits and pushes. Suggested message: `Packs: manifest, zip validator,
-importer, index cache, loader, fallback chain`. Next: stage 4 (renderers).
+Where it stopped (2026-10-25): stages 1–3 are committed (`7152405` is stage 3, by the
+owner). Stage 4 is finished and tested but **not committed**. Suggested message:
+`Renderers: base class, registry, 2d and placeholder renderers, fallback`.
+Next: stage 5 (backend service).
 
 Working rules from the owner: **Claude does not commit or push**; at the end of each stage
 it runs the tests, updates this file and gives a suggested commit message.
@@ -95,6 +95,18 @@ it runs the tests, updates this file and gives a suggested commit message.
   `pytest`: 158 passed. Note: tests write under `%APPDATA%\Saki\test_tmp` (cleaned per
   test) and a headless boot created `characters\`, `characters_dev\`, `index.json` and
   `app_settings.json` in `%APPDATA%\Saki`.
+- **Stage 4 (renderers, `app/renderers/`).** `CharacterRenderer` (Control; API
+  `load_pack`, `set_emotion`, `set_state`, `set_quality`, `get_visible_rect`,
+  `get_alpha_outline`, `natural_size`, `unload`; signal `visual_changed`; draws aspect-fit
+  aligned by the pack anchor). `RendererRegistry` (`RENDERERS` table type → script path;
+  missing script or unknown type → `FallbackRenderer`: thumbnail + "Loại gói này chưa được
+  hỗ trợ"). `sprite_2d/` (static, sheet, frames; animates only with more than one frame and
+  when the tier allows; shows the placeholder as a child when the pack has nothing
+  usable). `placeholder/` (code-drawn face per emotion/state, blink, talking mouth, bob;
+  redraws only on visible changes). `core/alpha_outline.gd`: x-monotone outline per frame,
+  computed once at load in `PackData` (no GPU read-back later). `QualityTier` Resource
+  class added (tier files come in stage 6). GUT: 46 passed (incl. each renderer standalone
+  in an empty scene, a simulated deleted renderer folder, a broken pack).
 
 ## Earlier rounds
 

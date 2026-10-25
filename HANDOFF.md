@@ -4,7 +4,7 @@ Last updated: 2026-10-25. For whoever picks up this repo next. How to run the ba
 the protocol are in [README.md](README.md). This file covers the current state, what
 changed recently, and what is still open.
 
-## Godot app round (`feature/godot-app`) — IN PROGRESS
+## Godot app round (`feature/godot-app`): phase 1 done, awaiting desktop check
 
 Spec: `plan/godot_app_phase1_prompt.md` (not in git). Godot **4.7.2-stable** (installed
 on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript only, GUT
@@ -22,14 +22,14 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 | 6 | Performance: tier resources, auto selection, FPS controller, debug overlay | done |
 | 7 | Shared UI components: message list (paging, node cap), bubble, sources, input, status, memories, settings, pack manager | done |
 | 8 | Modes: chat window, desktop pet (transparency, passthrough, drag, scale, menu, speech bubble, mini chat), switching | done |
-| 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | done (not committed) |
-| 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | todo |
+| 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | done |
+| 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | done (not committed) |
 
-Where it stopped (2026-10-25): stages 1–8 are committed (stage 8 = `51dea2c`). Stage 9 is
-finished and tested but **not committed**. Suggested message:
-`Global hotkey, desktop shortcut, Windows export preset, app icon`.
-Next: stage 10 (docs: ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER; measurements; final
-README/HANDOFF).
+Where it stopped (2026-10-25): stages 1–9 are committed (stage 9 = `d49003e`). Stage 10
+is finished and tested but **not committed**. Suggested message:
+`Docs (architecture, pack guide, Godot beginner guide), measurements, final README/HANDOFF`.
+All stages of the spec are done. What is left needs a person at the desktop (see "Not
+verified" under stage 8 and 9) and the export templates (GODOT_BEGINNER.md section 5).
 
 Working rules from the owner: **Claude does not commit or push**; at the end of each stage
 it runs the tests, updates this file and gives a suggested commit message.
@@ -221,6 +221,77 @@ it runs the tests, updates this file and gives a suggested commit message.
   because the 4.7.2 export templates are 1.28 GB (owner step in GODOT_BEGINNER.md); a real
   key press of the hotkey (no input injection into the owner's session).
   pytest: 161 passed, GUT: 110 passed.
+- **Stage 10 (docs, measurements).**
+  - Vietnamese docs:
+    - `app/ARCHITECTURE.md`: module diagram, layer rules with a grep check, every
+      EventBus signal and who emits it, the flow of one chat turn, the Modularization,
+      Scalability and Reusability checks, and "Thêm một bộ vẽ mới trong 5 bước".
+    - `app/PACK_GUIDE.md`: every manifest field with its limits, the three entry kinds,
+      how states override emotions, the limits table, `.sakip` zipping, folder mode, and
+      the common error messages.
+    - `app/GODOT_BEGINNER.md`: Godot 4.7.2 install, open/run, GUT, tools, export
+      templates, export, shortcut, file locations, troubleshooting.
+  - README: new "Desktop app" section with the measurements, plus app limitations.
+  - New tool `app/tools/measure.gd`: real app, throwaway backend data, windows
+    off-screen, no input; restores `app_settings.json`.
+  - Fixes found while writing:
+    - The built-in pack's images were not downscaled to the tier limit; now they go
+      through `PackData.fit_image` like user packs.
+    - `BACKEND_PORT_BUSY` said to change the port "trong Cài đặt", but Settings has no
+      port field; it now points to `app_settings.json`.
+  - Measurements: two runs, 10 s per idle phase, 5 s per busy phase; busy =
+    `busy_changed(true)`, the FPS state during a turn.
+
+    | | Chat window | Desktop pet |
+    |---|---|---|
+    | App working set | 158–162 MB | 153 MB |
+    | CPU, idle | 0–0.5 % of one core | 0 % |
+    | CPU, busy | 0–0.3 % | 0–1 % |
+    | Main loop, idle / busy | 12.2 / 8.4 per s | 12.2 / 8.4 per s |
+
+    - Loop rates equal the "Vừa" tier caps (12 idle, 8 busy). Low-processor mode only
+      redraws when something changed.
+    - Godot static memory: 40 MB.
+    - Backend (venv `pythonw` launcher + interpreter, no model loaded): 61 MB. Started
+      and ready in 5.4 s.
+    - No `pythonw`/`python` left after exit.
+    - Earlier numbers still hold: 200 packs list in 32 ms (cache) / 2.2 s (first scan);
+      1,000 messages scroll at a median of 16.6 ms per frame.
+    - Not measured: a real model turn (Ollama's own RAM/CPU dominates and depends on the
+      model, not on the app).
+
+  pytest: 161 passed, GUT: 110 passed.
+
+### Known limitations of the app (phase 1)
+
+- Pet transparency, click-through, drag, Ctrl + wheel, always-on-top, multi-monitor
+  restore, `.sakip` drag-and-drop and the dark theme on screen are implemented and
+  unit-tested, but not yet checked by a person (see stage 8).
+- No real export yet: the templates are not installed here. The preset parses.
+- `rcedit` may be needed for the `.exe` icon (GODOT_BEGINNER.md section 6).
+- Click-through takes one x-monotone polygon. Characters with holes (e.g. between arm and
+  body) catch clicks in the hole.
+- Busy FPS (5–10) also slows the streaming text to 5–10 updates per second.
+- Selecting text in a bubble is not possible (`Label`); right-click copies the message.
+- The backend must be a repo checkout with `.venv`; there is no bundled Python yet.
+- The port is only changeable in `app_settings.json`.
+- The built-in pack (`app/packs/default/`) has no images yet, so the code-drawn
+  placeholder is shown.
+
+### Next phases
+
+1. **1b: llama-server.** Backend-managed `llama-server` with the bundled 1.5B GGUF (no
+   Ollama in the release app), model provisioning and update/rollback through
+   `ModelProvisioner`, a bundled Python (embeddable or frozen) so the `.exe` needs no repo.
+2. **2: glTF.** A `3d-gltf` renderer (`renderers/gltf/`, one registry line, see
+   ARCHITECTURE.md section 6), emotion → animation mapping in the manifest.
+3. **3: VRM.** VRM avatars (blend shapes for emotions, look-at), probably on top of the
+   glTF renderer.
+4. **4: Live2D.** Needs the Cubism SDK (licence and a native GDExtension): check the
+   licence before starting.
+
+Also still open from earlier: the `Origin`/`Host` check on the local server ("Suggested
+next steps" 6) and the model-name suggestions (7).
 
 ## Earlier rounds
 
@@ -345,8 +416,8 @@ Google News items showed publisher domains, and asking "Bạn khỏe không" and
 3. Replace the 0.5B tier hint with a minimum-RAM warning in `hardware.py`.
 4. Model update and rollback flow (manifest with `prompt_version` and
    `min_app_version`). The `ModelProvisioner` interface in `hardware.py` is the hook.
-5. Frontend (Godot/Unity) against the protocol in the README, including `reset`. The
-   web page and the character pack format (`format: 1`) are the reference.
+5. ~~Frontend~~: done as the Godot app in `app/` (this round). Remaining: the desktop
+   check and a real export (see "Known limitations of the app").
 6. Security hardening of the local server: there is no `Origin` check on `/ws` and no
    `Host` check, so any website open in the browser could connect to
    `ws://127.0.0.1:8765/ws` (or use DNS rebinding for REST) and read or change chat and

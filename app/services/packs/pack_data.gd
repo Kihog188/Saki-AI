@@ -176,6 +176,8 @@ func _load_image(file: String, columns: int, rows: int) -> Image:
 		var builtin: Image = tex.get_image()
 		if builtin != null and builtin.is_compressed():
 			builtin.decompress()
+		if builtin != null:
+			PackData.fit_image(builtin, max_texture_size, columns, rows)
 		return builtin
 	if PackRules.check_path(file) != "" or not FileAccess.file_exists(path):
 		return null

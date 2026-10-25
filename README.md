@@ -249,6 +249,31 @@ Hardware tiers by free RAM: under 1.2 GB is `insufficient` (with a warning), 1.2
 is `small` (0.5B model recommended), above that is `standard` (1.5B). The backend only
 reports the tier; it never switches models by itself.
 
+## Desktop app (`app/`)
+
+Godot 4.7.2 (Compatibility renderer, GDScript). It starts this backend hidden
+(`pythonw -m saki`), stops it on exit, and has two display modes: a chat window and a
+transparent desktop pet. Docs (Vietnamese):
+
+- [app/GODOT_BEGINNER.md](app/GODOT_BEGINNER.md): install Godot, run, tests, export
+  `Saki.exe`, desktop shortcut, where logs and settings live, troubleshooting.
+- [app/ARCHITECTURE.md](app/ARCHITECTURE.md): layers, EventBus signals, the flow of one
+  chat turn, how to add a renderer.
+- [app/PACK_GUIDE.md](app/PACK_GUIDE.md): character pack format and `.sakip` import.
+
+Measured on the dev machine (i5-3360M, Intel HD 4000 through ANGLE/D3D11, 8 GB RAM, tier
+"Vừa", `app/tools/measure.gd`):
+
+| | Chat window | Desktop pet |
+|---|---|---|
+| App RAM (working set) | 158 MB | 153 MB |
+| CPU idle / busy | 0–0.5 % / 0–0.3 % of one core | 0 % / 0–1 % |
+| Loop rate idle / busy | 12 / 8 per second (tier caps) | 12 / 8 |
+
+Backend (`pythonw` + interpreter, no model loaded) 61 MB. Pack list with 200 packs: 32 ms
+from the cache, 2.2 s for the first scan. Scrolling 1,000 messages: median 16.6 ms per
+frame.
+
 ## Gói nhân vật
 
 Gói nhân vật giờ do app desktop quản lý (backend không còn biết gì về ảnh). Cách tạo gói:
@@ -359,3 +384,7 @@ app/               Godot 4 desktop app (see app/ARCHITECTURE.md)
   the model is retrained.
 - Model files are not downloaded automatically yet (see the TODO in `hardware.py`).
 - Changing the port requires a restart.
+- Desktop app: the pet's transparency, click-through, drag and resize, and a real press
+  of the global hotkey were built and unit-tested but not yet tried by a person on the
+  desktop. A real `Saki.exe` export was not made (export templates not installed on the
+  dev machine). See "Not verified" in [HANDOFF.md](HANDOFF.md).

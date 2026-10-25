@@ -71,7 +71,7 @@ STATUS_CONNECTING,Đang kết nối với Saki...
 LLM_DOWN_HINT,Chưa kết nối được với mô hình. Hãy mở Ollama rồi bấm Thử lại.
 BACKEND_PROTOCOL_MISMATCH,"Phiên bản backend không khớp với app (backend: {theirs}, app cần: {ours}). Hãy cập nhật cả hai lên cùng phiên bản."
 BACKEND_REQUEST_FAILED,Yêu cầu tới Saki bị lỗi (mã {code}).
-BACKEND_PORT_BUSY,"Cổng {port} đang bị một ứng dụng khác sử dụng. Hãy đóng ứng dụng đó, hoặc đổi cổng trong Cài đặt."
+BACKEND_PORT_BUSY,"Cổng {port} đang bị một ứng dụng khác sử dụng. Hãy đóng ứng dụng đó, hoặc đổi ""port"" trong %APPDATA%\Saki\app_settings.json rồi mở lại Saki."
 BACKEND_NOT_FOUND,Không tìm thấy backend Saki (thư mục có saki\ và .venv\). Bấm Chọn thư mục... để chỉ chỗ đặt backend.
 BACKEND_START_FAILED,Không khởi động được Saki. Xem nhật ký ở %APPDATA%\Saki\logs\saki.log.
 BACKEND_START_TIMEOUT,"Saki khởi động quá lâu. Hãy thử lại, hoặc xem nhật ký ở %APPDATA%\Saki\logs\saki.log."

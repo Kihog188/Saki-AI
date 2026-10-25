@@ -1,0 +1,69 @@
+; Engine configuration file.
+; Saki desktop app. Godot 4.7.2, Compatibility renderer (OpenGL), GDScript only.
+; See ARCHITECTURE.md for how the code is organised and GODOT_BEGINNER.md for how to run it.
+
+config_version=5
+
+[application]
+
+config/name="Saki"
+config/description="Saki desktop companion"
+config/version="0.1.0"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://assets/icon.svg"
+; user:// is %APPDATA%\Saki (the same folder as the backend data).
+config/use_custom_user_dir=true
+config/custom_user_dir_name="Saki"
+; Only redraw when something changed: big CPU saving while the model runs.
+run/low_processor_mode=true
+run/low_processor_mode_sleep_usec=16000
+boot_splash/show_image=false
+boot_splash/bg_color=Color(0, 0, 0, 0)
+
+[autoload]
+
+EventBus="*res://core/event_bus.gd"
+App="*res://app.gd"
+
+[debug]
+
+file_logging/enable_file_logging=true
+file_logging/log_path="user://logs/app.log"
+file_logging/max_log_files=3
+gdscript/warnings/untyped_declaration=1
+gdscript/warnings/inferred_declaration=0
+gdscript/warnings/unsafe_method_access=0
+
+[display]
+
+window/size/viewport_width=960
+window/size/viewport_height=640
+window/size/min_width=360
+window/size/min_height=420
+window/per_pixel_transparency/allowed=true
+window/subwindows/embed_subwindows=false
+window/energy_saving/keep_screen_on=false
+window/stretch/aspect="expand"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gut/plugin.cfg")
+
+[gui]
+
+theme/default_font_multichannel_signed_distance_field=false
+timers/tooltip_delay_sec=0.6
+
+[internationalization]
+
+locale/translations=PackedStringArray("res://i18n/strings.vi.translation")
+locale/fallback="vi"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=false
+environment/defaults/default_clear_color=Color(0, 0, 0, 0)
+viewport/transparent_background=false

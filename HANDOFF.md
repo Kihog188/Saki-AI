@@ -15,7 +15,7 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 | # | Stage | State |
 |---|---|---|
 | 1 | Backend: remove web UI and `/characters`, `protocol_version`, `/history?before=`, `POST /shutdown` | done |
-| 2 | Godot project skeleton: `core/` (EventBus, constants), `App` composition root, settings service + migration, translations, GUT setup | todo |
+| 2 | Godot project skeleton: `core/` (EventBus, constants), `App` composition root, settings service + migration, translations, GUT setup | done |
 | 3 | Packs: manifest parser/validator, zip validator, importer (thread), index cache, loader, fallback chain, test-pack generator | todo |
 | 4 | Renderers: base class, registry, placeholder, 2d, unsupported fallback | todo |
 | 5 | Backend service: process manager, `BackendClient` (fake transport in tests), reconnect | todo |
@@ -25,7 +25,7 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 | 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | todo |
 | 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | todo |
 
-Where it stopped: stage 1 is committed. Next: stage 2.
+Where it stopped: stage 2 is committed. Next: stage 3 (packs).
 
 ### Spec deviations and notes (decided while planning)
 
@@ -62,6 +62,13 @@ Where it stopped: stage 1 is committed. Next: stage 2.
   removed keys in old `config.json` are skipped silently. Added `protocol_version: 1` to
   `/health`, `before` paging and `id` to `/history`, `POST /shutdown` (token), and no
   console log handler under `pythonw`. `pytest`: 158 passed.
+- **Stage 2 (skeleton).** `app/project.godot` (Compatibility renderer, `user://` =
+  `%APPDATA%\Saki`, low-processor mode, per-pixel transparency allowed, subwindows not
+  embedded, log to `user://logs/app.log`). Autoloads: `EventBus` (typed signals) and `App`
+  (composition root; `boot()` is called by `main.gd`, so tests start nothing).
+  `SettingsService` (versioned JSON, write-then-rename, type sanitising, migration 0→1).
+  `i18n/strings.csv` (keys → Vietnamese) with a test that every `tr("KEY")` exists. GUT
+  9.7.1 in `app/addons/gut/`; run `app/run_tests.ps1`. GUT: 10 passed.
 
 ## Earlier rounds
 

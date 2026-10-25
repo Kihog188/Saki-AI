@@ -1,10 +1,71 @@
-# Handoff: Saki backend
+# Handoff: Saki
 
-Last updated: 2026-10-21. For whoever picks up this repo next. How to run it and the
-frontend protocol are in [README.md](README.md). This file covers the current state,
-what changed recently, and what is still open.
+Last updated: 2026-10-25. For whoever picks up this repo next. How to run the backend and
+the protocol are in [README.md](README.md). This file covers the current state, what
+changed recently, and what is still open.
 
-## Current state
+## Godot app round (`feature/godot-app`) — IN PROGRESS
+
+Spec: `plan/godot_app_phase1_prompt.md` (not in git). Godot **4.7.2-stable** (installed
+on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript only, GUT
+9.7.1 as dev-only test addon. The app lives in `app/`.
+
+### Stages
+
+| # | Stage | State |
+|---|---|---|
+| 1 | Backend: remove web UI and `/characters`, `protocol_version`, `/history?before=`, `POST /shutdown` | done |
+| 2 | Godot project skeleton: `core/` (EventBus, constants), `App` composition root, settings service + migration, translations, GUT setup | todo |
+| 3 | Packs: manifest parser/validator, zip validator, importer (thread), index cache, loader, fallback chain, test-pack generator | todo |
+| 4 | Renderers: base class, registry, placeholder, 2d, unsupported fallback | todo |
+| 5 | Backend service: process manager, `BackendClient` (fake transport in tests), reconnect | todo |
+| 6 | Performance: tier resources, auto selection, FPS controller, debug overlay | todo |
+| 7 | Shared UI components: message list (paging, node cap), bubble, sources, input, status, memories, settings, pack manager | todo |
+| 8 | Modes: chat window, desktop pet (transparency, passthrough, drag, scale, menu, speech bubble, mini chat), switching | todo |
+| 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | todo |
+| 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | todo |
+
+Where it stopped: stage 1 is committed. Next: stage 2.
+
+### Spec deviations and notes (decided while planning)
+
+1. **History paging needs the backend.** `GET /history` only had `limit`. Added an optional
+   `before=<id>` and an `id` field per message (additive, old clients unaffected).
+2. **Graceful backend stop.** `pythonw.exe` has no window or console, and Windows has no
+   SIGTERM, so "graceful first" needs an endpoint: `POST /shutdown`, which exists only if
+   the launcher set `SAKI_SHUTDOWN_TOKEN` and sends it as `X-Saki-Token` (a web page cannot
+   send that header cross-origin without a CORS preflight, which fails). Fallback after a
+   timeout: `taskkill /T /F /PID`.
+3. **No working directory in `OS.create_process`.** The app sets `PYTHONPATH=<repo>` before
+   starting `pythonw -m saki` instead.
+4. **`ZIPReader` hides zip metadata** (symlink flags, declared sizes, duplicate names). The
+   validator parses the zip central directory itself and uses `ZIPReader` only to extract
+   files that already passed every rule.
+5. **"Occluded" cannot be detected** by Godot. Rendering stops when the chat window is
+   minimized; unfocused uses the idle rate.
+6. **Busy FPS 5–10 also slows the streaming text** to 5–10 updates per second. Acceptable;
+   it is per-tier data.
+7. **Global hotkey** through the backend (`ctypes` + `RegisterHotKey`, no compilation).
+   Protocol additions, both optional: client→server `hotkey_config`, server→client
+   `hotkey` and `hotkey_status`.
+8. **Mouse passthrough takes one polygon.** The pet builds an x-monotone outline (left and
+   right edge per row band) from the character alpha, with the speech bubble rectangle
+   merged in.
+9. Model suggestions `saki-lite`/`saki-standard` still do not exist (see "Suggested next
+   steps" 7); they are only suggestions in a free-text field.
+
+### Stage log
+
+- **Stage 1 (backend).** Removed `saki/web/`, `saki/packs/`, `saki/characters.py`, `GET /`,
+  `/static`, `/characters*`, the `character_pack` setting, `open_browser` and
+  `--no-browser`, and their tests. A `character_pack` row in old databases is never read;
+  removed keys in old `config.json` are skipped silently. Added `protocol_version: 1` to
+  `/health`, `before` paging and `id` to `/history`, `POST /shutdown` (token), and no
+  console log handler under `pythonw`. `pytest`: 158 passed.
+
+## Earlier rounds
+
+### State before the Godot round
 
 - Backend MVP works end to end: FastAPI WebSocket `/ws` + REST, Ollama and llama-server
   adapters, `/se` and `/news` search, memories, address pair (`/xh`), dev CLI.
@@ -14,7 +75,7 @@ what changed recently, and what is still open.
   Windows), offline (no network, no Ollama).
 - Live-tested on the dev machine (i5-3360M, 8 GB RAM) against Ollama model `saki`.
 
-## Web UI round (`feature/web-ui`)
+### Web UI round (`feature/web-ui`)
 
 Spec: `plan/frontend_prompt.md` (not in git). All additive: the WebSocket protocol and
 the old REST endpoints are unchanged.
@@ -53,7 +114,7 @@ missing-emotion fallback, history on reload, reconnect after a server restart, 3
 width, dark mode, no console errors. **Not verified:** Firefox, and a real Ollama model
 behind the page.
 
-## Changes in the review round (from real-use review)
+### Changes in the review round (from real-use review)
 
 Each item has tests. Test file in brackets.
 

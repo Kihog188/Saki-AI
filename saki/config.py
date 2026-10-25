@@ -16,6 +16,9 @@ APP_NAME = "Saki"
 HOST = "127.0.0.1"  # local only, never exposed on the network
 DEFAULT_PORT = 8765
 
+# Keys that older versions accepted in config.json. They are skipped without a warning.
+REMOVED_CONFIG_KEYS = frozenset({"open_browser", "character_pack"})
+
 
 def default_data_dir() -> Path:
     """Per-user app-data folder (%APPDATA%\\Saki on Windows)."""
@@ -35,18 +38,16 @@ def default_data_dir() -> Path:
 class AppConfig:
     """Static configuration, loaded from `<data_dir>/config.json` if present.
 
-    `self_name`, `user_name`, `character_pack`, `llm_backend`, `model` and `port` are only
+    `self_name`, `user_name`, `llm_backend`, `model` and `port` are only
     defaults: values saved through /xh or PUT /settings (stored in SQLite) take precedence.
     """
 
     data_dir: Path = field(default_factory=default_data_dir)
     port: int = DEFAULT_PORT
-    open_browser: bool = True  # open the web UI when the server starts (`--no-browser` disables)
 
     # Persona defaults
     self_name: str = "Saki"
     user_name: str = "bạn"
-    character_pack: str = "default"  # folder name under <data_dir>/characters, or a built-in pack
 
     # LLM
     llm_backend: str = "ollama"  # "ollama" | "llamacpp"
@@ -98,6 +99,8 @@ class AppConfig:
             return cfg
         known = {f.name for f in fields(cls)} - {"data_dir"}
         for key, value in raw.items():
+            if key in REMOVED_CONFIG_KEYS:
+                continue
             if key not in known:
                 log.warning("Unknown config key ignored: %s", key)
                 continue
@@ -122,8 +125,10 @@ def setup_logging(cfg: AppConfig, level: int = logging.INFO) -> None:
     file_handler = RotatingFileHandler(
         cfg.log_dir / "saki.log", maxBytes=1_000_000, backupCount=3, encoding="utf-8"
     )
-    console = logging.StreamHandler()
-    for h in (file_handler, console):
+    handlers: list[logging.Handler] = [file_handler]
+    if sys.stderr is not None:  # None under pythonw.exe (no console)
+        handlers.append(logging.StreamHandler())
+    for h in handlers:
         h.setFormatter(fmt)
         h._saki = True  # type: ignore[attr-defined]
         root.addHandler(h)

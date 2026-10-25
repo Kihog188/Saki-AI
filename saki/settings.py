@@ -5,11 +5,12 @@ Both the /xh command and PUT /settings go through `SettingsStore.update`.
 
 from __future__ import annotations
 
-from .characters import CharacterStore
 from .config import AppConfig
 from .storage import Storage
 
-EDITABLE_KEYS = ("self_name", "user_name", "character_pack", "llm_backend", "model", "port")
+# `character_pack` was removed with the web UI: a value still stored in old databases is
+# simply never read, because only these keys are.
+EDITABLE_KEYS = ("self_name", "user_name", "llm_backend", "model", "port")
 LLM_BACKENDS = ("ollama", "llamacpp")
 MAX_NAME_CHARS = 20
 
@@ -55,11 +56,6 @@ class SettingsStore:
                 raise SettingsError(f"Không có cài đặt '{key}'.")
             if key in ("self_name", "user_name"):
                 clean[key] = validate_name(value)
-            elif key == "character_pack":
-                pack = str(value).strip()
-                if not CharacterStore(self._config.data_dir).is_valid(pack):
-                    raise SettingsError(f"Không có gói nhân vật hợp lệ tên '{pack}'.")
-                clean[key] = pack
             elif key == "llm_backend":
                 if value not in LLM_BACKENDS:
                     raise SettingsError("llm_backend phải là 'ollama' hoặc 'llamacpp'.")

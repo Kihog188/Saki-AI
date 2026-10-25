@@ -109,13 +109,14 @@ class Storage:
                 (role, content, time.time(), emotion, kind),
             )
 
-    def get_history(self, limit: int = 50) -> list[dict]:
-        """The most recent `limit` messages, oldest first."""
+    def get_history(self, limit: int = 50, before_id: int | None = None) -> list[dict]:
+        """The most recent `limit` messages (older than `before_id` if given), oldest first."""
+        where, params = ("WHERE id < ? ", (before_id, limit)) if before_id is not None else ("", (limit,))
         with self._lock:
             rows = self._conn.execute(
-                "SELECT role, content, emotion, kind, created_at FROM messages "
-                "ORDER BY id DESC LIMIT ?",
-                (limit,),
+                "SELECT id, role, content, emotion, kind, created_at FROM messages "
+                f"{where}ORDER BY id DESC LIMIT ?",
+                params,
             ).fetchall()
         return [dict(r) for r in reversed(rows)]
 

@@ -25,6 +25,18 @@ def test_history_order_limit_and_clear(storage):
     assert storage.get_history() == []
 
 
+def test_history_pages_backwards_by_id(storage):
+    for i in range(7):
+        storage.add_message("user", f"u{i}")
+    newest = storage.get_history(limit=3)
+    assert [m["content"] for m in newest] == ["u4", "u5", "u6"]
+    older = storage.get_history(limit=3, before_id=newest[0]["id"])
+    assert [m["content"] for m in older] == ["u1", "u2", "u3"]
+    oldest = storage.get_history(limit=3, before_id=older[0]["id"])
+    assert [m["content"] for m in oldest] == ["u0"]
+    assert storage.get_history(limit=3, before_id=oldest[0]["id"]) == []
+
+
 def test_history_stores_emotion_and_kind(storage):
     storage.add_message("user", "/news x", kind="search")
     storage.add_message("assistant", "Tin.", emotion="thinking", kind="search")

@@ -4,22 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hmac
 import json
 import logging
-import mimetypes
-import re
+import os
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import date
-from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from . import __version__
-from .characters import CharacterStore, PackError
 from .chat import ChatService
 from .config import AppConfig
 from .hardware import recommend_tier
@@ -30,19 +26,12 @@ from .storage import MemoryLimitError, Storage
 
 log = logging.getLogger(__name__)
 
-WEB_DIR = Path(__file__).parent / "web"
+# Bumped when the WebSocket/REST contract changes in a way clients must know about.
+PROTOCOL_VERSION = 1
 
-# Windows can map .js to text/plain in the registry, which breaks ES modules.
-for _type, _ext in (("text/javascript", ".js"), ("text/css", ".css"), ("image/svg+xml", ".svg")):
-    mimetypes.add_type(_type, _ext)
-
-HOST_RE = re.compile(r"^[A-Za-z0-9.\-]+(:\d{1,5})?$")
-
-# The page only talks to this server; manifests and model output never become HTML.
-PAGE_CSP = (
-    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
-    "connect-src 'self' ws://{host}; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
-)
+# A launcher (the desktop app) sets this before starting the backend, then sends it in the
+# X-Saki-Token header to POST /shutdown. Without it, /shutdown does not exist.
+SHUTDOWN_TOKEN_ENV = "SAKI_SHUTDOWN_TOKEN"
 
 MEMORY_ERRORS = {
     "empty": "Nội dung ghi nhớ không được để trống.",
@@ -54,7 +43,6 @@ MEMORY_ERRORS = {
 class SettingsUpdate(BaseModel):
     self_name: str | None = None
     user_name: str | None = None
-    character_pack: str | None = None
     llm_backend: str | None = None
     model: str | None = None
     port: int | None = None
@@ -78,7 +66,6 @@ class AppState:
         self.cfg = cfg
         self.storage = storage
         self.settings = SettingsStore(storage, cfg)
-        self.characters = CharacterStore(cfg.data_dir)
         self._owns_llm = llm is None
         s = self.settings.get_all()
         self.llm = llm or create_backend(cfg, s["llm_backend"], s["model"])
@@ -87,6 +74,8 @@ class AppState:
             search, self._http = create_search_service(cfg)
         self.search = search
         self.chat = ChatService(cfg, storage, self.settings, lambda: self.llm, search, today=today)
+        # Set by __main__ to stop uvicorn; None when the app runs under a test client.
+        self.request_shutdown: Callable[[], None] | None = None
 
     async def apply_llm_settings(self) -> None:
         """Recreate the backend if llm_backend/model changed (only for an owned backend)."""
@@ -142,21 +131,6 @@ def create_app(
         response.headers.setdefault("Cache-Control", "no-cache")
         return response
 
-    # --- web UI ------------------------------------------------------------------
-
-    @app.get("/", include_in_schema=False)
-    async def index(request: Request):
-        host = request.headers.get("host", "")
-        if not HOST_RE.match(host):
-            host = "127.0.0.1"
-        return FileResponse(
-            WEB_DIR / "index.html",
-            media_type="text/html; charset=utf-8",
-            headers={"Content-Security-Policy": PAGE_CSP.format(host=host)},
-        )
-
-    app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
-
     # --- REST -------------------------------------------------------------------
 
     @app.get("/health")
@@ -165,6 +139,7 @@ def create_app(
         return {
             "status": "ok",
             "version": __version__,
+            "protocol_version": PROTOCOL_VERSION,
             "llm": {"backend": state.llm.name, "model": state.llm.model, **llm_health},
             "hardware": recommend_tier().to_dict(),
         }
@@ -184,8 +159,9 @@ def create_app(
         return {**after, "restart_required": after["port"] != before["port"]}
 
     @app.get("/history")
-    async def get_history(limit: int = 50):
-        return {"messages": state.storage.get_history(max(1, min(limit, 500)))}
+    async def get_history(limit: int = 50, before: int | None = None):
+        """`before` (a message `id`) pages backwards: only messages older than it."""
+        return {"messages": state.storage.get_history(max(1, min(limit, 500)), before_id=before)}
 
     @app.delete("/history")
     async def delete_history():
@@ -209,26 +185,16 @@ def create_app(
             raise HTTPException(status_code=404, detail="Không tìm thấy ghi nhớ.")
         return {"ok": True}
 
-    # --- character packs ----------------------------------------------------------
-
-    @app.get("/characters")
-    async def list_characters():
-        return {"packs": state.characters.list()}
-
-    @app.get("/characters/{pack_id}/manifest")
-    async def character_manifest(pack_id: str):
-        try:
-            return state.characters.load(pack_id).to_dict()
-        except PackError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from None
-
-    @app.get("/characters/{pack_id}/files/{filename}")
-    async def character_file(pack_id: str, filename: str):
-        try:
-            path, content_type = state.characters.image(pack_id, filename)
-        except PackError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from None
-        return FileResponse(path, media_type=content_type)
+    @app.post("/shutdown", include_in_schema=False)
+    async def shutdown(x_saki_token: str = Header(default="")):
+        token = os.environ.get(SHUTDOWN_TOKEN_ENV, "")
+        if not token or state.request_shutdown is None:
+            raise HTTPException(status_code=404)
+        if not hmac.compare_digest(x_saki_token, token):
+            raise HTTPException(status_code=403)
+        log.info("Shutdown requested by the launcher")
+        state.request_shutdown()
+        return {"ok": True}
 
     # --- WebSocket -------------------------------------------------------------
 

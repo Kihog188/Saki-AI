@@ -124,7 +124,8 @@ func start_backend() -> void:
 	print("Backend ready check: code='%s' owned=%s in %d ms (app uptime %d ms)" % [r["code"], r["owned"], Time.get_ticks_msec() - t0, Time.get_ticks_msec()])
 	if r["code"] != BackendProcess.OK_RUNNING:
 		push_warning("Backend not available: %s" % r["code"])
-		EventBus.backend_state_changed.emit(SakiConst.CONN_FAILED, r["message"])
+		var state: StringName = SakiConst.CONN_NOT_FOUND if r["code"] == BackendProcess.ERR_NOT_FOUND else SakiConst.CONN_FAILED
+		EventBus.backend_state_changed.emit(state, r["message"])
 		return
 	backend.start()
 

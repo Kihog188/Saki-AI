@@ -3,6 +3,8 @@ extends ScrollContainer
 ## "Cài đặt". Backend-owned values (address pair, model) go through PUT /settings and show
 ## its Vietnamese 400 errors; app-owned values are stored by SettingsService
 ## (%APPDATA%\Saki\app_settings.json) and apply immediately.
+## The backend folder is NOT here: the app finds it by itself, and only when it cannot,
+## the status line offers "Chọn thư mục..." (StatusLine, action "pick_backend_dir").
 
 const MODEL_SUGGESTIONS: PackedStringArray = ["saki", "saki-lite", "saki-standard"]
 const QUALITY_IDS: PackedStringArray = ["auto", "low", "medium", "high"]
@@ -16,13 +18,10 @@ var _self_name: LineEdit
 var _user_name: LineEdit
 var _model: LineEdit
 var _backend_msg: Label
-var _backend_dir: LineEdit
-var _dir_msg: Label
 var _quality: OptionButton
 var _quality_msg: Label
 var _danger_msg: Label
 var _confirm_clear: ConfirmationDialog
-var _dir_dialog: FileDialog
 
 
 func setup(ctx: UiContext) -> void:
@@ -90,17 +89,6 @@ func _build_app_section() -> void:
 	_header("SETTINGS_SECTION_APP")
 	var s: SettingsService = _ctx.settings
 
-	var dir_row: HBoxContainer = _row("SETTINGS_BACKEND_DIR")
-	_backend_dir = _line_edit(dir_row, 400)
-	_backend_dir.placeholder_text = tr("SETTINGS_BACKEND_DIR_AUTO")
-	_backend_dir.text = s.get_value("backend_dir")
-	_backend_dir.text_submitted.connect(func(t: String) -> void: _set_backend_dir(t))
-	var pick := Button.new()
-	pick.text = tr("ACTION_BROWSE")
-	pick.pressed.connect(_pick_backend_dir)
-	dir_row.add_child(pick)
-	_dir_msg = _message_label()
-
 	var q_row: HBoxContainer = _row("SETTINGS_QUALITY")
 	_quality = OptionButton.new()
 	for i: int in QUALITY_IDS.size():
@@ -161,29 +149,6 @@ func _build_app_section() -> void:
 			return
 		var r: Dictionary = _ctx.create_shortcut.call()
 		_show(shortcut_msg, r.get("message", ""), not r.get("ok", false)))
-
-
-func _pick_backend_dir() -> void:
-	if _dir_dialog == null:
-		_dir_dialog = FileDialog.new()
-		_dir_dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
-		_dir_dialog.access = FileDialog.ACCESS_FILESYSTEM
-		_dir_dialog.use_native_dialog = true
-		_dir_dialog.title = tr("SETTINGS_BACKEND_DIR")
-		_dir_dialog.dir_selected.connect(func(d: String) -> void:
-			_backend_dir.text = d
-			_set_backend_dir(d))
-		add_child(_dir_dialog)
-	_dir_dialog.popup_centered(Vector2i(700, 500))
-
-
-func _set_backend_dir(dir: String) -> void:
-	var d: String = dir.strip_edges()
-	if d != "" and not BackendProcess.is_backend_dir(d):
-		_show(_dir_msg, tr("SETTINGS_BACKEND_DIR_INVALID"), true)
-		return
-	_ctx.settings.set_value("backend_dir", d)
-	_show(_dir_msg, tr("SETTINGS_BACKEND_DIR_SAVED"), false)
 
 
 func _redetect() -> void:

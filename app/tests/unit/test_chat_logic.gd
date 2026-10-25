@@ -190,3 +190,6 @@ func test_status_model() -> void:
 	var crash: Dictionary = StatusModel.describe(SakiConst.CONN_FAILED, "Saki đã dừng bất ngờ.", true, "")
 	assert_eq(crash["action"], "restart_backend")
 	assert_eq(StatusModel.describe(SakiConst.CONN_STARTING, "", true, "")["text"], "Đang khởi động Saki...")
+	var missing: Dictionary = StatusModel.describe(SakiConst.CONN_NOT_FOUND, "", true, "")
+	assert_eq(missing["action"], "pick_backend_dir", "folder picker only when the app cannot find the backend")
+	assert_string_contains(missing["text"], "Bấm Chọn thư mục...")

@@ -20,15 +20,15 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 | 4 | Renderers: base class, registry, placeholder, 2d, unsupported fallback | done |
 | 5 | Backend service: process manager, `BackendClient` (fake transport in tests), reconnect | done |
 | 6 | Performance: tier resources, auto selection, FPS controller, debug overlay | done |
-| 7 | Shared UI components: message list (paging, node cap), bubble, sources, input, status, memories, settings, pack manager | done (not committed) |
-| 8 | Modes: chat window, desktop pet (transparency, passthrough, drag, scale, menu, speech bubble, mini chat), switching | todo |
+| 7 | Shared UI components: message list (paging, node cap), bubble, sources, input, status, memories, settings, pack manager | done |
+| 8 | Modes: chat window, desktop pet (transparency, passthrough, drag, scale, menu, speech bubble, mini chat), switching | done (not committed) |
 | 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | todo |
 | 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | todo |
 
-Where it stopped (2026-10-25): stages 1–6 are committed (stage 6 = `bfb1d4e`). Stage 7 is
+Where it stopped (2026-10-25): stages 1–7 are committed (stage 7 = `9dac148`). Stage 8 is
 finished and tested but **not committed**. Suggested message:
-`Shared UI: chat session, mood, message list paging, panels, theme`.
-Next: stage 8 (modes: chat window, desktop pet, switching).
+`Modes: chat window, desktop pet, mode switching, UI snapshot tool`.
+Next: stage 9 (global hotkey, desktop shortcut, export preset, icon).
 
 Working rules from the owner: **Claude does not commit or push**; at the end of each stage
 it runs the tests, updates this file and gives a suggested commit message.
@@ -163,6 +163,42 @@ it runs the tests, updates this file and gives a suggested commit message.
   first message and back): median 16.6 ms, p95 17.7 ms, 39 of 5,201 frames over 33 ms
   (max 142 ms, when the window shifts), never more than 120 live nodes. GUT: 100 passed,
   `pytest`: 158 passed.
+- **Stage 8 (modes).** `modes/display_mode.gd` (interface: `enter`, `exit`,
+  `show_message`, `show_notice`, `open_panel`, `on_hotkey`), `modes/chat_window/`
+  (character panel + name + status line, chat panel, header buttons, remembered rect with
+  off-screen fallback, character strip on top below 680 px) and `modes/pet/` (borderless,
+  per-pixel transparent, always on top by default, size = character × scale (+ bubble),
+  position stored as the character's bottom-centre so the bubble grows upwards, drag with
+  a 5 px threshold so a drag is never a click, click = `surprised` 1.5 s + mini chat when
+  idle, Ctrl + wheel scale (saved 0.6 s after the wheel stops), right-click menu, speech
+  bubble with "…xem tiếp", mini chat = the shared `ChatPanel` in a native window next to
+  the pet, click-through polygon = alpha outline + bubble via `WindowService`, updated at
+  most every 0.1 s). `services/platform/window_service.gd`: multi-monitor fit, default
+  pet corner, passthrough polygon merge. `main.gd` hosts the modes (`MODES` table, start in
+  the last mode, switch without touching session/backend, .sakip drag-and-drop, notices,
+  hotkey, quit). `SettingsService.set_value(..., persist=false)` for live values.
+  Findings: (1) `Main` is a plain `Node`, so neither anchors nor themes reach the mode:
+  `main.gd` sizes the mode to the viewport and sets `mode.theme` itself. (2) headless
+  Godot reports its window as minimized. (3) GUI automation from outside the app is not
+  usable on the dev machine: Windows blocks `SetForegroundWindow`, so screen captures and
+  `SendKeys` hit the owner's other windows (this happened once; stopped). Instead
+  `app/tools/ui_snapshot.gd` saves PNGs of the app's own windows (off-screen, no focus,
+  throwaway backend data, restores `app_settings.json`): chat after `/help`, the three
+  panels, the pet with and without bubble. Checked visually: layout, Vietnamese text,
+  light theme, pet PNG alpha 0 in the corner and 1 on the character. Fixed from the
+  snapshots: theme not applied, mode not filling the window, check boxes drawn as buttons.
+  GUT: 107 passed, `pytest`: 158 passed.
+
+  Owner decision after review: the backend folder is no longer in Settings. The app
+  finds it by itself (a saved folder that is no longer valid falls back to searching);
+  only when nothing is found, the status line shows "Không tìm thấy backend Saki..." with
+  a **Chọn thư mục...** button (`CONN_NOT_FOUND`, action `pick_backend_dir`). Spec 3 is
+  still met (ask only when not found), without the setting cluttering the panel.
+
+  **Not verified (needs a person at the desktop):** pet transparency as composited by
+  Windows (ANGLE/D3D11), click-through on transparent pixels, drag, Ctrl + wheel,
+  right-click menu, always-on-top, mini chat placement, .sakip drag-and-drop, multi-monitor
+  restore, dark theme on screen.
 
 ## Earlier rounds
 

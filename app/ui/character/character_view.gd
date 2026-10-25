@@ -16,11 +16,14 @@ func setup(ctx: UiContext) -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	ctx.bus.active_pack_changed.connect(func(_k: String) -> void: _rebuild())
 	ctx.bus.character_emotion_changed.connect(func(e: String) -> void:
-		if renderer: renderer.set_emotion(e))
+		if renderer:
+			renderer.set_emotion(e))
 	ctx.bus.character_state_changed.connect(func(s: StringName) -> void:
-		if renderer: renderer.set_state(s))
+		if renderer:
+			renderer.set_state(s))
 	ctx.bus.quality_tier_changed.connect(func(t: Resource) -> void:
-		if renderer: renderer.set_quality(t as QualityTier))
+		if renderer:
+			renderer.set_quality(t as QualityTier))
 	_rebuild()
 
 

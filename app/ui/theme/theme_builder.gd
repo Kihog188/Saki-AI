@@ -64,6 +64,16 @@ static func build(t: SakiTheme) -> Theme:
 		th.set_stylebox("normal", type, btn)
 		th.set_stylebox("hover", type, hover)
 		th.set_stylebox("pressed", type, hover)
+	# Check boxes are plain text with a tick, not bordered buttons.
+	var plain := StyleBoxEmpty.new()
+	plain.set_content_margin_all(4)
+	for type: String in ["CheckBox", "CheckButton"]:
+		for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+			th.set_stylebox(state, type, plain)
+		th.set_stylebox("focus", type, _focus(t))
+		th.set_color("font_pressed_color", type, t.text)
+		th.set_color("font_hover_color", type, t.accent)
+		th.set_color("font_hover_pressed_color", type, t.accent)
 
 	var field: StyleBoxFlat = _box(t.panel, t.corner_radius / 2, t.border)
 	field.set_content_margin_all(8)

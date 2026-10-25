@@ -12,6 +12,7 @@ var _conn_message: String = ""
 var _llm: bool = true
 var _turn: String = ""
 var _action_id: String = ""
+var _dir_dialog: FileDialog
 
 
 func setup(ctx: UiContext) -> void:
@@ -55,7 +56,7 @@ func _refresh() -> void:
 	_label.theme_type_variation = {"error": &"ErrorLabel", "warn": &"WarnLabel", "busy": &"MutedLabel"}.get(d["level"], &"")
 	_action_id = d["action"]
 	_action.visible = _action_id != ""
-	_action.text = tr("ACTION_RETRY") if _action_id == "retry_llm" else tr("ACTION_RESTART")
+	_action.text = {"retry_llm": tr("ACTION_RETRY"), "pick_backend_dir": tr("ACTION_PICK_BACKEND")}.get(_action_id, tr("ACTION_RESTART"))
 
 
 func _on_action() -> void:
@@ -65,3 +66,28 @@ func _on_action() -> void:
 		"restart_backend":
 			if _ctx.restart_backend.is_valid():
 				_ctx.restart_backend.call()
+		"pick_backend_dir":
+			_pick_backend_dir()
+
+
+## Only shown when the app could not find the backend by itself.
+func _pick_backend_dir() -> void:
+	if _dir_dialog == null:
+		_dir_dialog = FileDialog.new()
+		_dir_dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+		_dir_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_dir_dialog.use_native_dialog = true
+		_dir_dialog.title = tr("BACKEND_PICK_TITLE")
+		_dir_dialog.dir_selected.connect(_on_backend_dir_selected)
+		add_child(_dir_dialog)
+	_dir_dialog.popup_centered(Vector2i(700, 500))
+
+
+func _on_backend_dir_selected(dir: String) -> void:
+	if not BackendProcess.is_backend_dir(dir):
+		_conn_message = tr("BACKEND_PICK_INVALID")
+		_refresh()
+		return
+	_ctx.settings.set_value("backend_dir", dir)
+	if _ctx.restart_backend.is_valid():
+		_ctx.restart_backend.call()

@@ -77,14 +77,17 @@ func get_value(key: String) -> Variant:
 
 
 ## Stores the value, saves the file and emits EventBus.setting_changed.
-func set_value(key: String, value: Variant) -> void:
+## `persist` = false applies the value now and leaves writing to a later save() (for
+## values that change many times per second, like Ctrl + wheel scaling).
+func set_value(key: String, value: Variant, persist: bool = true) -> void:
 	if not DEFAULTS.has(key):
 		push_error("Unknown setting: %s" % key)
 		return
 	if _data.get(key) == value:
 		return
 	_data[key] = value
-	save()
+	if persist:
+		save()
 	if _bus:
 		_bus.setting_changed.emit(key, value)
 

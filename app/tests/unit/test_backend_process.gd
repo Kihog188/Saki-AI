@@ -43,7 +43,7 @@ func test_finds_repo_from_nested_folder() -> void:
 	assert_eq(BackendProcess.find_backend_dir("", PackedStringArray([nested])), _repo)
 	assert_eq(BackendProcess.find_backend_dir("", PackedStringArray([ProjectSettings.globalize_path("user://")])), "")
 	assert_eq(BackendProcess.find_backend_dir(_repo, PackedStringArray()), _repo)
-	assert_eq(BackendProcess.find_backend_dir(_repo.path_join("nope"), PackedStringArray([nested])), "", "a configured wrong folder is not overridden")
+	assert_eq(BackendProcess.find_backend_dir(_repo.path_join("nope"), PackedStringArray([nested])), _repo, "a stale saved folder falls back to searching")
 
 
 func test_existing_saki_is_used_not_owned() -> void:
@@ -66,6 +66,7 @@ func test_port_used_by_another_program() -> void:
 
 func test_backend_not_found() -> void:
 	_proc.backend_dir = _repo.path_join("missing")
+	_proc.search_roots = PackedStringArray([ProjectSettings.globalize_path("user://")])
 	var r: Dictionary = await _proc.ensure_running()
 	assert_eq(r["code"], BackendProcess.ERR_NOT_FOUND)
 	assert_string_contains(r["message"], "Không tìm thấy backend Saki")

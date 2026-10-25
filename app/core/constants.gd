@@ -31,6 +31,8 @@ const CONN_CONNECTING: StringName = &"connecting"
 const CONN_CONNECTED: StringName = &"connected"
 const CONN_DISCONNECTED: StringName = &"disconnected"
 const CONN_FAILED: StringName = &"failed"
+## The backend folder could not be found: the status line offers a folder picker.
+const CONN_NOT_FOUND: StringName = &"not_found"
 
 ## Where the app keeps its files. user:// is %APPDATA%\Saki (see project.godot).
 const SETTINGS_PATH: String = "user://app_settings.json"

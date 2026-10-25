@@ -21,6 +21,7 @@ var _start: int = 0
 var _end: int = 0
 var _follow: bool = true # stick to the bottom when new messages arrive
 var _shifting: bool = false
+var _scroll_on_ready: bool = false
 
 
 func _init(p_compact: bool = false) -> void:
@@ -54,8 +55,18 @@ func window() -> Vector2i:
 
 func scroll_to_bottom() -> void:
 	_follow = true
-	await get_tree().process_frame
-	scroll_vertical = int(get_v_scroll_bar().max_value)
+	if not is_inside_tree():
+		_scroll_on_ready = true # built before being added to a window
+		return
+	await get_tree().process_frame # wait for the new content to be laid out
+	if is_inside_tree():
+		scroll_vertical = int(get_v_scroll_bar().max_value)
+
+
+func _ready() -> void:
+	if _scroll_on_ready:
+		_scroll_on_ready = false
+		scroll_to_bottom()
 
 
 ## Renders the newest messages (after a clear, a history load or on setup).

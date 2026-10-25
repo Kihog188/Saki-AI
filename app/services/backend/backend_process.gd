@@ -25,6 +25,8 @@ var start_timeout: float = 90.0
 var poll_interval: float = 0.5
 ## Folder that contains saki/ and .venv/ ("" = search next to the app).
 var backend_dir: String = ""
+## Where to search when `backend_dir` is empty or stale ([] = default_search_roots()).
+var search_roots: PackedStringArray = []
 var port: int = 8765
 
 var owned: bool = false
@@ -62,7 +64,8 @@ func ensure_running() -> Dictionary:
 		return _result(OK_RUNNING, "")
 	if probe["busy"]:
 		return _result(ERR_PORT_BUSY, I18n.t("BACKEND_PORT_BUSY", {"port": port}))
-	var dir: String = BackendProcess.find_backend_dir(backend_dir, BackendProcess.default_search_roots())
+	var roots: PackedStringArray = search_roots if not search_roots.is_empty() else BackendProcess.default_search_roots()
+	var dir: String = BackendProcess.find_backend_dir(backend_dir, roots)
 	if dir == "":
 		return _result(ERR_NOT_FOUND, I18n.t("BACKEND_NOT_FOUND"))
 
@@ -144,11 +147,12 @@ static func is_backend_dir(dir: String) -> bool:
 		and FileAccess.file_exists(BackendProcess.python_path(dir))
 
 
-## `configured` wins if valid. Otherwise each root and up to 4 parent folders are tried
-## (the repo root is the parent of app/, and an exported .exe may sit deeper).
+## `configured` (a folder the user picked once) wins if it is still valid. Otherwise each
+## root and up to 4 parent folders are tried (the repo root is the parent of app/, and an
+## exported .exe may sit deeper), so a stale saved folder never blocks the app.
 static func find_backend_dir(configured: String, roots: PackedStringArray) -> String:
-	if configured != "":
-		return configured if is_backend_dir(configured) else ""
+	if configured != "" and is_backend_dir(configured):
+		return configured
 	for root: String in roots:
 		var dir: String = root.simplify_path()
 		for _i: int in 5:

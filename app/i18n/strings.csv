@@ -56,6 +56,15 @@ IMPORT_DONE,Đã nhập gói “{name}”.
 IMPORT_RESIZED,Đã thu nhỏ {n} ảnh lớn hơn {max} px.
 IMPORT_ERR_REPLACE,Không thay được gói cũ “{id}”. Hãy đóng các chương trình đang mở thư mục gói rồi thử lại.
 IMPORT_ERR_WRITE,Không ghi được vào thư mục gói nhân vật.
+IMPORT_HAS_WARNINGS,Có {n} lưu ý (xem trong mục Nhân vật).
+PACK_AUTO_NO_IMAGES,"Không tìm thấy ảnh nhân vật (.png, .jpg, .jpeg, .webp) hay manifest.json ở ngay trong thư mục này."
+PACK_AUTO_NO_NEUTRAL,Không có ảnh neutral.png nên dùng “{file}” làm ảnh mặc định.
+PACK_AUTO_FRAMES_WIN,"Có cả “{file}” và các ảnh {name}_01, {name}_02...: dùng các ảnh đánh số làm hoạt ảnh, bỏ qua “{file}”."
+PACK_AUTO_IGNORED,"Bỏ qua {n} tệp không dùng: {files}. Tên ảnh dùng được: neutral, happy, sad, thinking, surprised, embarrassed, idle, talking (thêm _01, _02... để làm hoạt ảnh)."
+PACK_AUTO_MORE,(và {n} tệp khác)
+PACK_AUTO_DEFAULT_NAME,Nhân vật mới
+PACK_WARN_OPAQUE,"Ảnh {file} chưa xóa nền, nhân vật sẽ có khung nền."
+PACK_WARN_OPAQUE_MANY,"Các ảnh {files} chưa xóa nền, nhân vật sẽ có khung nền."
 RENDERER_UNSUPPORTED,Loại gói này chưa được hỗ trợ
 TIER_AUTO,Tự động
 TIER_LOW,Thấp
@@ -125,11 +134,15 @@ SETTINGS_SHORTCUT_UNAVAILABLE,Chỉ tạo được lối tắt khi chạy bản 
 SETTINGS_CLEAR_HISTORY,Xóa lịch sử trò chuyện
 SETTINGS_CLEAR_CONFIRM,Xóa toàn bộ lịch sử trò chuyện? Ghi nhớ vẫn được giữ lại. Không thể hoàn tác.
 SETTINGS_HISTORY_CLEARED,Đã xóa lịch sử trò chuyện.
-PACKS_IMPORT,Nhập gói
+PACKS_ADD_FOLDER,Thêm nhân vật
+PACKS_ADD_FOLDER_TIP,"Chọn thư mục chứa ảnh nhân vật đã xóa nền (neutral.png, happy.png, sad.png...)."
+PACKS_OPEN_FOLDER,Mở thư mục nhân vật
+PACKS_WARNINGS,Lưu ý
+PACKS_IMPORT,Nhập tệp .sakip
 PACKS_FILE_TYPE,Gói nhân vật Saki
 PACKS_OPEN_DEV_FOLDER,Mở thư mục gói thử
 PACKS_RESCAN,Quét lại
-PACKS_DROP_HINT,Hoặc kéo tệp .sakip thả vào cửa sổ Saki.
+PACKS_DROP_HINT,Hoặc kéo thư mục ảnh hay tệp .sakip thả vào cửa sổ Saki.
 PACKS_IMPORT_BUSY,Đang nhập một gói khác. Hãy đợi xong rồi thử lại.
 PACKS_BROKEN,Gói bị lỗi
 PACKS_ACTIVE,đang dùng
@@ -147,7 +160,7 @@ PET_MENU_ALWAYS_ON_TOP,Luôn nằm trên cùng
 PET_MENU_PACKS,Nhân vật…
 PET_MENU_SETTINGS,Cài đặt…
 PET_MENU_QUIT,Thoát
-PACKS_DROP_ONLY_SAKIP,Chỉ nhận tệp gói nhân vật .sakip.
+PACKS_DROP_ONLY_SAKIP,Chỉ nhận thư mục ảnh nhân vật hoặc tệp .sakip.
 ACTION_PICK_BACKEND,Chọn thư mục...
 BACKEND_PICK_TITLE,Chọn thư mục backend Saki (thư mục có saki\ và .venv\)
 BACKEND_PICK_INVALID,Thư mục này không có backend Saki (cần có saki\__main__.py và .venv\). Hãy chọn lại.

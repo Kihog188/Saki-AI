@@ -1,8 +1,105 @@
-# Hướng dẫn làm gói nhân vật Saki
+# Hướng dẫn làm nhân vật cho Saki
 
-Tài liệu cho người vẽ hoặc làm gói nhân vật. Không cần biết lập trình. Một gói nhân vật
-gồm một file `manifest.json` (mô tả gói) và các file ảnh. App chỉ đọc JSON và ảnh, không
-chạy thứ gì khác trong gói.
+Muốn Saki mang hình nhân vật của bạn, chỉ cần **một thư mục ảnh**. Không phải viết code
+hay file cấu hình nào. App chỉ đọc ảnh và không bao giờ chạy thứ gì trong thư mục đó.
+
+## Cách đơn giản: một thư mục ảnh
+
+### Bước 1: vẽ ảnh
+
+Vẽ hoặc tạo (ví dụ bằng ChatGPT) cùng một nhân vật với các biểu cảm khác nhau. Mỗi biểu
+cảm là một ảnh. Tối thiểu chỉ cần **một** ảnh.
+
+Mẹo để các ảnh khớp nhau:
+- Giữ cùng khung hình, cùng cỡ nhân vật và cùng tư thế đứng. Chỉ đổi nét mặt.
+- Ảnh đứng (cao hơn rộng), nhân vật đứng sát đáy ảnh.
+- Cỡ gợi ý: cao 512–1.024 px.
+
+### Bước 2: xóa nền
+
+App **không** tự xóa nền. Hãy xóa nền bằng công cụ bạn quen dùng (ví dụ remove.bg,
+Photoshop, Canva, hoặc nút xóa nền của Windows Photos/Paint), rồi lưu ảnh dạng **PNG**
+(JPG không giữ được nền trong suốt).
+
+Nếu một ảnh vẫn còn nền, app vẫn nhận nhưng nhắc: "Ảnh happy.png chưa xóa nền, nhân vật
+sẽ có khung nền."
+
+### Bước 3: đặt tên ảnh
+
+| Tên ảnh | Khi nào hiện |
+|---|---|
+| `neutral.png` | bình thường, lúc rảnh (nên có) |
+| `happy.png` | vui |
+| `sad.png` | buồn |
+| `thinking.png` | đang suy nghĩ, đang tìm kiếm |
+| `surprised.png` | ngạc nhiên, và khi bạn bấm vào pet |
+| `embarrassed.png` | ngại ngùng |
+| `talking.png` | trong lúc Saki đang trả lời (không bắt buộc) |
+| `idle.png` | lúc rảnh, thay cho `neutral.png` (không bắt buộc) |
+
+- Hoa thường không quan trọng: `Happy.PNG` cũng được. Đuôi `.png`, `.jpg`, `.jpeg` hoặc
+  `.webp` đều được.
+- Thiếu biểu cảm nào thì Saki dùng `neutral.png` thay. Không có `neutral.png` thì app
+  lấy ảnh đầu tiên (theo tên) làm ảnh mặc định.
+- **Hoạt ảnh:** đánh số các ảnh của cùng một biểu cảm: `happy_01.png`, `happy_02.png`,
+  `happy_03.png`... App chạy chúng theo thứ tự số, 8 khung mỗi giây, lặp lại. Nếu có cả
+  `happy.png` lẫn các ảnh đánh số, app dùng các ảnh đánh số.
+- Ảnh hoặc file có tên khác (ví dụ `nhap.png`, `ghi chu.txt`) bị bỏ qua và được liệt kê
+  trong phần "Lưu ý" của gói, không gây lỗi.
+
+### Bước 4: bỏ tất cả vào một thư mục
+
+Tên thư mục là tên nhân vật hiện trong app, có dấu cũng được:
+
+```
+Saki Hồng/
+├── neutral.png
+├── happy.png
+├── sad.png
+├── thinking.png
+├── surprised.png
+├── embarrassed.png
+├── talking_01.png      ← không bắt buộc: hoạt ảnh lúc trả lời
+└── talking_02.png
+```
+
+Đặt ảnh ngay trong thư mục này, không để trong thư mục con.
+
+### Bước 5: đưa vào Saki
+
+Chọn một trong ba cách:
+- **Kéo thư mục thả vào cửa sổ Saki** (cửa sổ chat hoặc pet).
+- Mở **Nhân vật** → **Thêm nhân vật** → chọn thư mục.
+- Mở **Nhân vật** → **Mở thư mục nhân vật**, rồi chép thư mục vào đó và bấm **Quét
+  lại**. Cách này dùng ảnh nguyên trạng: không chép, không tối ưu, không kiểm tra nền.
+
+Với hai cách đầu, app **chép** ảnh vào `%APPDATA%\Saki\characters\`. Thư mục gốc của bạn
+không bị thay đổi. Ảnh quá lớn được thu nhỏ. Thêm cùng một thư mục hai lần sẽ tạo hai
+nhân vật (`saki-hong` và `saki-hong-2`); nhân vật cũ không bị ghi đè.
+
+Sau đó chọn nhân vật trong danh sách, bấm từng biểu cảm để xem thử, rồi bấm **Dùng gói
+này**. Nhân vật có lưu ý thì mang nhãn **⚠ Lưu ý**; bấm vào nhân vật để đọc lưu ý.
+
+### Bước 6: chia sẻ cho người khác
+
+1. Chuột phải thư mục nhân vật → **Gửi tới** → **Thư mục nén (zipped)**.
+2. Đổi đuôi file vừa tạo từ `.zip` thành `.sakip`, ví dụ `Saki Hồng.sakip`.
+3. Người nhận kéo file `.sakip` thả vào cửa sổ Saki, hoặc bấm **Nhập tệp .sakip**.
+
+Trong file zip, ảnh có thể nằm ngay ở gốc hoặc trong đúng một thư mục. Tên nhân vật lấy
+theo thư mục đó, hoặc theo tên file `.sakip` nếu ảnh nằm ở gốc.
+
+Giới hạn an toàn vẫn áp dụng như với mọi gói: tối đa 50 MB nén, 200 MB sau giải nén,
+2.000 file, ảnh tối đa 8.192 px mỗi cạnh (chi tiết ở mục "Nâng cao 4").
+
+---
+
+# Nâng cao: gói có `manifest.json`
+
+Dành cho người muốn kiểm soát nhiều hơn: sprite sheet, tốc độ hoạt ảnh riêng cho từng
+biểu cảm, điểm neo, cỡ, tác giả, giấy phép, ảnh đại diện riêng. Khi thư mục hoặc file
+`.sakip` có `manifest.json` ở gốc, app **chỉ** dùng manifest và không đoán theo tên ảnh
+nữa. Gói có manifest phải theo quy tắc tên file chặt hơn (mục 1).
 
 ## 1. Cấu trúc thư mục
 
@@ -183,7 +280,7 @@ Rename-Item .\miku-chibi.zip miku-chibi.sakip
 ```
 
 Để nhập vào Saki, **kéo file `.sakip` thả vào cửa sổ Saki** (cả chế độ chat lẫn pet),
-hoặc mở **Gói nhân vật** → **Nhập gói**. Việc nhập chạy nền, có thanh tiến độ. App
+hoặc mở **Nhân vật** → **Nhập tệp .sakip**. Việc nhập chạy nền, có thanh tiến độ. App
 thực hiện:
 1. Kiểm tra mọi quy tắc trên.
 2. Giải nén vào thư mục tạm.
@@ -198,10 +295,11 @@ Nhập một gói có `id` đã tồn tại sẽ **thay** gói cũ.
 
 Không cần nén mỗi lần sửa ảnh:
 
-1. Mở **Gói nhân vật** → **Mở thư mục gói thử**. Thư mục đó là
+1. Mở **Nhân vật** → **Mở thư mục gói thử**. Thư mục đó là
    `%APPDATA%\Saki\characters_dev\`.
-2. Chép thư mục gói vào đó. Tên thư mục phải trùng `id`, ví dụ
-   `characters_dev\miku-chibi\manifest.json`.
+2. Chép thư mục gói vào đó. Với gói có manifest, tên thư mục phải trùng `id`, ví dụ
+   `characters_dev\miku-chibi\manifest.json`. Thư mục ảnh không có manifest (cách đơn
+   giản) thì đặt tên gì cũng được.
 3. Bấm **Quét lại**. Gói hiện với nhãn "gói thử".
 4. Sửa ảnh hoặc manifest, rồi bấm **Tải lại** trên gói đó để thấy ngay.
 
@@ -217,7 +315,9 @@ Gói lỗi nằm trong mục **Gói bị lỗi**, kèm lý do chính xác. Các 
 
 | Thông báo | Nguyên nhân, cách sửa |
 |---|---|
-| Không tìm thấy manifest.json ở thư mục gốc của gói. | Lúc nén đã chọn thư mục cha chứa nhiều thứ, hoặc đặt tên sai (`Manifest.json`, `manifest.json.txt`). Hãy nén các file *bên trong* thư mục gói |
+| Không tìm thấy ảnh nhân vật (.png, .jpg, .jpeg, .webp) hay manifest.json ở ngay trong thư mục này. | Ảnh nằm trong thư mục con, hoặc lúc nén đã chọn thư mục cha chứa nhiều thứ. Hãy để ảnh (và `manifest.json` nếu có) ngay trong thư mục nhân vật. Một `manifest.json` bị đặt sai tên (`Manifest.json`, `manifest.json.txt`) không được nhận |
+| Ảnh happy.png chưa xóa nền, nhân vật sẽ có khung nền. | Chỉ là lưu ý: ảnh không có điểm ảnh trong suốt nào. Xóa nền, lưu PNG, rồi thêm lại nhân vật |
+| Bỏ qua N tệp không dùng: … | Chỉ là lưu ý, với gói không có manifest: các file đó có tên không khớp bảng ở Bước 3 |
 | manifest.json không phải JSON hợp lệ (dòng 12: …). | Thiếu dấu phẩy, thừa dấu phẩy cuối, hoặc dùng dấu nháy cong `“ ”`. Kiểm tra bằng một trình kiểm tra JSON |
 | Thiếu trường “name” trong manifest.json. | Thêm trường bắt buộc: `format`, `id`, `name`, `type` |
 | Trường “emotions.happy.fps” trong manifest.json không hợp lệ: phải nằm trong khoảng 0.5–60. | Giá trị nằm ngoài giới hạn ở mục 2–3 |

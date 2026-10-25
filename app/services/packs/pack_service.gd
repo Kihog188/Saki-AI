@@ -87,8 +87,9 @@ static func load_pack(e: Dictionary, max_texture: int) -> PackData:
 	var m := PackManifest.new()
 	m.type = e.get("type", "placeholder")
 	var manifest_path: String = String(e.get("path", "")).path_join(PackValidator.MANIFEST)
-	if e.get("source") == "dev":
-		# Dev packs are loaded as they are: validate the whole folder every time.
+	if e.get("source") == "dev" or (e.get("source") == "user" and not FileAccess.file_exists(manifest_path)):
+		# Dev packs and plain image folders copied in by hand are loaded as they are:
+		# validate the whole folder every time (this also builds a missing manifest).
 		var report: Dictionary = PackValidator.validate_folder(e["path"])
 		if report["ok"]:
 			m = report["manifest"]
@@ -105,21 +106,22 @@ func is_importing() -> bool:
 	return _import_thread != null
 
 
-## Starts importing a .sakip in the background. Progress and the result arrive through
-## EventBus.pack_import_progress / pack_import_finished. Returns false if busy.
-func import_file(zip_path: String) -> bool:
+## Starts importing a .sakip file or a pack folder in the background. Progress and the
+## result arrive through EventBus.pack_import_progress / pack_import_finished.
+## Returns false if busy.
+func import_file(path: String) -> bool:
 	if _import_thread != null:
 		return false
 	var importer := PackImporter.new(_user_dir, index.thumbs_dir())
 	importer.progress = func(fraction: float, text: String) -> void:
 		_bus.pack_import_progress.emit.call_deferred(fraction, text)
 	_import_thread = Thread.new()
-	_import_thread.start(_import_worker.bind(importer, zip_path), Thread.PRIORITY_LOW)
+	_import_thread.start(_import_worker.bind(importer, path), Thread.PRIORITY_LOW)
 	return true
 
 
-func _import_worker(importer: PackImporter, zip_path: String) -> void:
-	var result: Dictionary = importer.import_zip(zip_path)
+func _import_worker(importer: PackImporter, path: String) -> void:
+	var result: Dictionary = importer.import_folder(path) if DirAccess.dir_exists_absolute(path) else importer.import_zip(path)
 	_import_done.call_deferred(result)
 
 

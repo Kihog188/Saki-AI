@@ -8,7 +8,7 @@ extends RefCounted
 ##
 ## Entry (Dictionary): {"key", "id", "name", "author", "version", "type", "source"
 ##   ("builtin" | "user" | "dev"), "path", "thumbnail" (file path or ""), "hash",
-##   "valid", "error", "stamp"}
+##   "valid", "error", "stamp", "warnings" (Vietnamese notes shown in the pack manager)}
 ## `key` is unique: the id for built-in and user packs, "dev/<id>" for dev packs.
 
 const INDEX_VERSION: int = 1
@@ -49,9 +49,9 @@ func refresh() -> Array[Dictionary]:
 				continue # our own folders (.thumbs, .incoming_*)
 			var key: String = folder if source == "user" else "dev/" + folder
 			var path: String = root.path_join(folder)
-			var stamp: int = FileAccess.get_modified_time(path.path_join(PackValidator.MANIFEST))
+			var stamp: int = _stamp(path)
 			var old: Dictionary = cached.get(key, {})
-			if not old.is_empty() and int(old.get("stamp", -1)) == stamp and old.get("source") == source:
+			if stamp >= 0 and not old.is_empty() and int(old.get("stamp", -1)) == stamp and old.get("source") == source:
 				_entries[key] = old
 			else:
 				_entries[key] = _scan_entry(key, folder, source, path, stamp)
@@ -93,7 +93,7 @@ func rescan(key: String) -> Dictionary:
 	var e: Dictionary = _entries.get(key, {})
 	if e.is_empty() or e["source"] == "builtin":
 		return e
-	var stamp: int = FileAccess.get_modified_time(String(e["path"]).path_join(PackValidator.MANIFEST))
+	var stamp: int = _stamp(e["path"])
 	var folder: String = String(e["path"]).get_file()
 	var fresh: Dictionary = _scan_entry(key, folder, e["source"], e["path"], stamp)
 	put(fresh)
@@ -134,16 +134,27 @@ func _scan_entry(key: String, folder: String, source: String, path: String, stam
 		e["author"] = m.author
 		e["version"] = m.version
 		e["type"] = m.type
-	if not PackRules.is_valid_id(folder):
+	var warnings: PackedStringArray = report["warnings"]
+	var saved: String = path.path_join(PackImporter.WARNINGS_FILE)
+	if FileAccess.file_exists(saved):
+		warnings.append_array(FileAccess.get_file_as_string(saved).strip_edges().split("\n", false))
+	e["warnings"] = Array(warnings)
+	if report["auto"]:
+		# A plain folder of images copied into a packs folder by hand: loaded as it is,
+		# under its folder name (no id to match, any folder name is fine).
+		if not report["ok"]:
+			e["error"] = report["error"]
+			return e
+	elif not PackRules.is_valid_id(folder):
 		e["error"] = I18n.t("PACK_ERR_FOLDER_NAME", {"folder": folder})
 		return e
-	if not report["ok"]:
+	elif not report["ok"]:
 		e["error"] = report["error"]
 		return e
-	if m.id != folder:
+	elif m.id != folder:
 		e["error"] = I18n.t("PACK_ERR_ID_FOLDER", {"id": m.id, "folder": folder})
 		return e
-	if source == "user" and m.id == SakiConst.DEFAULT_PACK_ID:
+	elif source == "user" and m.id == SakiConst.DEFAULT_PACK_ID:
 		e["error"] = I18n.t("PACK_ERR_ID_RESERVED")
 		return e
 	e["valid"] = true
@@ -160,8 +171,15 @@ func _empty_entry(key: String, id: String, source: String, path: String) -> Dict
 	return {
 		"key": key, "id": id, "name": id, "author": "", "version": "", "type": "",
 		"source": source, "path": path, "thumbnail": "", "hash": "", "valid": false,
-		"error": "", "stamp": 0,
+		"error": "", "stamp": 0, "warnings": [],
 	}
+
+
+## Modification time of the pack's manifest.json; -1 for a pack without one (its files
+## are not tracked, so it is checked again on every refresh: it is small and rare).
+static func _stamp(path: String) -> int:
+	var manifest: String = path.path_join(PackValidator.MANIFEST)
+	return FileAccess.get_modified_time(manifest) if FileAccess.file_exists(manifest) else -1
 
 
 func _read_index() -> Dictionary:

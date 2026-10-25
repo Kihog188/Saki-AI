@@ -90,8 +90,9 @@ func _notification(what: int) -> void:
 
 
 func _on_files_dropped(files: PackedStringArray) -> void:
+	# A .sakip file or a folder of character images (both go through the importer).
 	for f: String in files:
-		if f.get_extension().to_lower() == "sakip":
+		if f.get_extension().to_lower() == "sakip" or DirAccess.dir_exists_absolute(f):
 			if App.packs.import_file(f):
 				current.open_panel("packs")
 			else:

@@ -38,7 +38,11 @@ func test_lists_user_dev_and_broken_packs() -> void:
 	TestPackGenerator.generate(_users, 2)
 	TestPackGenerator.generate(_devs, 1)
 	DirAccess.make_dir_recursive_absolute(_users.path_join("broken"))
-	DirAccess.make_dir_recursive_absolute(_users.path_join("Bad Name"))
+	# A badly named folder only matters for packs with a manifest (a plain image folder
+	# may have any name, see test_simple_packs.gd).
+	TestPackGenerator.generate(_users.path_join("tmp"), 1)
+	DirAccess.rename_absolute(_users.path_join("tmp/test-pack-000"), _users.path_join("Bad Name"))
+	PackFiles.remove_tree(_users.path_join("tmp"))
 	var list: Array[Dictionary] = _index().refresh()
 	var by_key: Dictionary = {}
 	for e: Dictionary in list:

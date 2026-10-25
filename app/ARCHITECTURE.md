@@ -224,7 +224,7 @@ Ngoài ra không phải sửa gì khác: chế độ, UI và trình quản lý g
 | `main.gd`, `main.tscn` | scene chính: bảng `MODES`, `switch_mode`, kéo thả `.sakip`, thoát |
 | `core/` | `event_bus.gd`, `constants.gd`, `i18n.gd`, `alpha_outline.gd` |
 | `services/backend/` | `BackendProcess` (tìm repo, chạy `pythonw -m saki` ẩn, dừng), `BackendClient` (health, WebSocket, REST, kết nối lại), các transport |
-| `services/packs/` | `PackRules`, `PackManifest`, `ZipInspector`, `PackValidator`, `ImageProbe`, `PackImporter`, `PackIndex`, `PackData`, `PackService` |
+| `services/packs/` | `PackRules`, `PackManifest`, `PackAutoManifest` (manifest from file names for a plain image folder), `ZipInspector`, `PackValidator`, `ImageProbe`, `PackImporter`, `PackIndex`, `PackData`, `PackService` |
 | `services/settings/` | `SettingsService`: JSON có phiên bản, ghi qua file tạm, chuyển đổi định dạng cũ |
 | `services/performance/` | `QualityTier`, `TierSelector`, `PerformanceService`, `tiers/*.tres` |
 | `services/chat/` | `ChatSession` (mô hình tin nhắn chung), `MoodController` |

@@ -69,7 +69,6 @@ func test_rejections_name_file_and_rule() -> void:
 		[_good_zip().add("locked.png", png, {"encrypted": true}), "mật khẩu"],
 		[_good_zip().add("odd.png", png, {"method": 14}), "kiểu nén"],
 		[_good_zip().add("bomb.txt", "x".to_utf8_buffer(), {"declared_size": 50 * 1048576, "declared_compressed": 1000}), "zip bomb"],
-		[TestZipBuilder.new().add("neutral.png", png), "manifest.json"],
 		[TestZipBuilder.new().add_text("manifest.json", _manifest_text()).add("neutral.png", png), "happy_sheet.png"],
 	]
 	for c: Array in cases:

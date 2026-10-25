@@ -276,7 +276,9 @@ frame.
 
 ## Gói nhân vật
 
-Gói nhân vật giờ do app desktop quản lý (backend không còn biết gì về ảnh). Cách tạo gói:
+Gói nhân vật giờ do app desktop quản lý (backend không còn biết gì về ảnh). Cách đơn giản
+nhất: một thư mục ảnh đã xóa nền, đặt tên theo biểu cảm (`neutral.png`, `happy.png`...),
+kéo thả vào cửa sổ Saki. Không cần `manifest.json` hay code. Chi tiết và phần nâng cao:
 [app/PACK_GUIDE.md](app/PACK_GUIDE.md).
 
 ## Switching to llama.cpp (`llama-server`)

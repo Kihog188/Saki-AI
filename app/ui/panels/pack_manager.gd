@@ -2,8 +2,10 @@ class_name PackManager
 extends VBoxContainer
 ## "Nhân vật": installed packs as cards (thumbnail, name, author, type), a preview of the
 ## selected pack with one button per emotion/state, activate, delete (user packs, with
-## confirmation), "Tải lại" for dev packs, broken packs with their reason, and import
-## (button with a file dialog; drag-and-drop onto any app window is handled by the mode).
+## confirmation), "Tải lại" for dev packs, broken packs with their reason, the import
+## warnings of a pack (e.g. an image without a transparent background), and adding packs:
+## "Thêm nhân vật" (folder of images), "Nhập tệp .sakip" (file), "Mở thư mục nhân vật".
+## Drag-and-drop of a folder or .sakip onto any app window is handled by main.gd.
 
 const CARD_SIZE: Vector2 = Vector2(150, 200)
 const THUMB_SIZE: Vector2 = Vector2(120, 120)
@@ -18,12 +20,14 @@ var _preview_pack: PackData = null
 var _preview_buttons: HFlowContainer
 var _title: Label
 var _info: Label
+var _warnings: Label
 var _activate: Button
 var _delete: Button
 var _reload: Button
 var _progress: ProgressBar
 var _import_msg: Label
 var _file_dialog: FileDialog
+var _folder_dialog: FileDialog
 var _confirm: ConfirmationDialog
 var _selected: String = ""
 var _thumbs: Dictionary = {} # path -> Texture2D (small, freed with the panel)
@@ -71,12 +75,24 @@ func _exit_tree() -> void:
 # --- toolbar / import ------------------------------------------------------------------
 
 func _build_toolbar() -> void:
-	var bar := HBoxContainer.new()
+	var bar := HFlowContainer.new()
+	var add_btn := Button.new()
+	add_btn.text = tr("PACKS_ADD_FOLDER")
+	add_btn.tooltip_text = tr("PACKS_ADD_FOLDER_TIP")
+	add_btn.theme_type_variation = &"AccentButton"
+	add_btn.pressed.connect(_open_folder_dialog)
+	bar.add_child(add_btn)
 	var import_btn := Button.new()
 	import_btn.text = tr("PACKS_IMPORT")
-	import_btn.theme_type_variation = &"AccentButton"
 	import_btn.pressed.connect(_open_import_dialog)
 	bar.add_child(import_btn)
+	var packs_folder := Button.new()
+	packs_folder.text = tr("PACKS_OPEN_FOLDER")
+	packs_folder.tooltip_text = ProjectSettings.globalize_path(SakiConst.USER_PACKS_DIR)
+	packs_folder.pressed.connect(func() -> void:
+		DirAccess.make_dir_recursive_absolute(SakiConst.USER_PACKS_DIR)
+		OS.shell_open(ProjectSettings.globalize_path(SakiConst.USER_PACKS_DIR)))
+	bar.add_child(packs_folder)
 	var folder := Button.new()
 	folder.text = tr("PACKS_OPEN_DEV_FOLDER")
 	folder.tooltip_text = ProjectSettings.globalize_path(SakiConst.DEV_PACKS_DIR)
@@ -88,13 +104,12 @@ func _build_toolbar() -> void:
 	rescan.text = tr("PACKS_RESCAN")
 	rescan.pressed.connect(func() -> void: _ctx.packs.refresh())
 	bar.add_child(rescan)
+	add_child(bar)
 	var hint := Label.new()
 	hint.theme_type_variation = &"MutedLabel"
 	hint.text = tr("PACKS_DROP_HINT")
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.add_child(hint)
-	add_child(bar)
+	add_child(hint)
 	_progress = ProgressBar.new()
 	_progress.max_value = 1.0
 	_progress.visible = false
@@ -124,6 +139,18 @@ func _open_import_dialog() -> void:
 		_file_dialog.file_selected.connect(func(p: String) -> void: start_import(p))
 		add_child(_file_dialog)
 	_file_dialog.popup_centered(Vector2i(700, 500))
+
+
+func _open_folder_dialog() -> void:
+	if _folder_dialog == null:
+		_folder_dialog = FileDialog.new()
+		_folder_dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+		_folder_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_folder_dialog.use_native_dialog = true
+		_folder_dialog.title = tr("PACKS_ADD_FOLDER_TIP")
+		_folder_dialog.dir_selected.connect(func(p: String) -> void: start_import(p))
+		add_child(_folder_dialog)
+	_folder_dialog.popup_centered(Vector2i(700, 500))
 
 
 func start_import(path: String) -> void:
@@ -204,6 +231,8 @@ func _card(e: Dictionary) -> Control:
 		tags.append(tr("PACKS_ACTIVE"))
 	if e["source"] == "dev":
 		tags.append(tr("PACKS_DEV"))
+	if not Array(e.get("warnings", [])).is_empty():
+		tags.append("⚠ " + tr("PACKS_WARNINGS"))
 	meta.text = " · ".join(tags)
 	meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(meta)
@@ -242,6 +271,11 @@ func _build_preview() -> Control:
 	_info.theme_type_variation = &"MutedLabel"
 	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_info)
+	_warnings = Label.new()
+	_warnings.theme_type_variation = &"WarnLabel"
+	_warnings.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_warnings.visible = false
+	box.add_child(_warnings)
 	_preview_holder = Control.new()
 	_preview_holder.custom_minimum_size = Vector2(240, 240)
 	_preview_holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -278,10 +312,14 @@ func _select(key: String) -> void:
 	_clear_preview()
 	if e.is_empty():
 		_title.text = ""
+		_warnings.visible = false
 		return
 	_title.text = String(e["name"])
 	_info.text = tr("PACKS_INFO").format({"author": e["author"] if e["author"] != "" else "—",
 		"type": e["type"], "version": e["version"] if e["version"] != "" else "—"})
+	var notes: Array = e.get("warnings", [])
+	_warnings.visible = not notes.is_empty()
+	_warnings.text = tr("PACKS_WARNINGS") + ":\n• " + "\n• ".join(PackedStringArray(notes)) if not notes.is_empty() else ""
 	_activate.disabled = not e["valid"] or key == _ctx.packs.active_key()
 	_delete.visible = e["source"] == "user"
 	_reload.visible = e["source"] == "dev"

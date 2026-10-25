@@ -4,6 +4,77 @@ Last updated: 2026-10-25. For whoever picks up this repo next. How to run the ba
 the protocol are in [README.md](README.md). This file covers the current state, what
 changed recently, and what is still open.
 
+## Simple packs (`feature/simple-packs`, from `feature/godot-app`)
+
+Spec: the owner's task "character packs from a plain folder of images (no manifest, no
+code)". State: done and tested, **not committed** (the owner commits and pushes).
+
+What changed:
+- **A pack without `manifest.json` is valid** (folder or `.sakip`, images at the root or
+  inside one top-level folder of the zip). `services/packs/pack_auto_manifest.gd` builds
+  the manifest from the file names:
+  - pack name = folder name (zip: the folder inside it, else the zip file name), id =
+    slug (`Saki Hồng` → `saki-hong`, Vietnamese accents folded);
+  - names are matched case-insensitively; known names are the 6 backend emotions plus
+    the states `idle` and `talking`;
+  - `<name>_<n>.png` = frames (8 fps, loop), and they win over `<name>.png` (warning);
+  - no `neutral.*`: the first image by name becomes neutral (warning);
+  - every other file is ignored, listed in one warning, and never read or copied.
+- **Validator** (`PackValidator`): the hard rules apply to every pack (symlinks,
+  traversal, absolute paths, backslashes, encryption, duplicates, compression method, zip
+  bombs, size and count limits). The naming rules (characters, depth, extensions) reject a
+  pack only when it has a manifest; a plain folder ignores such files. OS files
+  (`Thumbs.db`, `desktop.ini`, `.DS_Store`) are skipped in both cases. The name of the one
+  top-level folder inside a zip is no longer checked (it is not part of the pack), so
+  "Send to > Compressed folder" works with accented folder names.
+- **Importer**: `import_folder()` next to `import_zip()`, the same checks and
+  optimisation. The source folder is only read. A built manifest is written into the
+  installed copy, under an id made unique (`-2`, `-3`...; never `default`), so an
+  existing pack is never replaced. A manifest pack with an existing id still replaces it
+  (update, as before).
+- **Background warning**: an image drawn as the character (not the thumbnail) with no
+  transparent pixel gives "Ảnh happy.png chưa xóa nền, nhân vật sẽ có khung nền." (one
+  note listing several files). It is still imported.
+- **Warnings are kept** in `import_warnings.txt` in the installed pack. The index puts
+  them in the entry (`warnings`), the pack manager shows them under the pack and tags the
+  card "⚠ Lưu ý". The import message says "Có N lưu ý".
+- **A plain folder copied by hand** into `characters\` (or `characters_dev\`) is listed
+  under its folder name and loaded as it is (validated, not optimised, built manifest).
+  It has no manifest to stamp, so it is checked again on every refresh.
+- **UI**: drag-and-drop accepts folders as well as `.sakip` (`main.gd`). The pack manager
+  has new buttons "Thêm nhân vật" (folder picker) and "Mở thư mục nhân vật" (opens
+  `%APPDATA%\Saki\characters\`). "Nhập gói" is now "Nhập tệp .sakip". The toolbar wraps.
+- Docs: `app/PACK_GUIDE.md` now starts with the no-code path (draw, remove background,
+  name, folder, drag in, zip to share); the manifest documentation is in "Nâng cao".
+  README and ARCHITECTURE updated.
+
+Tests: new `app/tests/unit/test_simple_packs.gd` (14 tests). It covers:
+- a folder without a manifest, and its import (the source folder is unchanged);
+- a zip without a manifest, at the root and inside an accented folder;
+- mixed-case names; numbered frames winning over a single image; a missing neutral;
+- unknown and badly named files; a folder without images;
+- the opaque warning, saved and shown again after a rescan;
+- unique ids (also for "Default"); a manifest still winning when present;
+- the security limits without a manifest (huge or fake image, too many files, zip
+  traversal inside the top folder, symlink, zip bomb);
+- a hand-copied folder; the slug.
+
+Two existing tests changed on purpose:
+- a zip with only `neutral.png` was "no manifest → rejected" and is now valid;
+- the "Bad Name" folder in `test_pack_index` now has a manifest, because the folder-name
+  rule only applies to manifest packs.
+
+GUT: 124 passed. pytest: 161 passed (backend untouched).
+
+Not verified by a person: the native folder picker, dropping a real folder from Explorer,
+and a zip made by Explorer with an accented folder name. Older Windows versions may write
+such names in the OEM code page instead of UTF-8; the pack is then still found (one
+top-level folder), but its name may look garbled.
+
+Note: `app/project.godot` and `app/export_presets.cfg` show uncommitted changes. These are
+the Godot editor re-saving the files during the owner's export (comments dropped, default
+values removed, file description "Saki-Ai"), not part of this task.
+
 ## Godot app round (`feature/godot-app`): phase 1 done, awaiting desktop check
 
 Spec: `plan/godot_app_phase1_prompt.md` (not in git). Godot **4.7.2-stable** (installed
@@ -23,13 +94,11 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 | 7 | Shared UI components: message list (paging, node cap), bubble, sources, input, status, memories, settings, pack manager | done |
 | 8 | Modes: chat window, desktop pet (transparency, passthrough, drag, scale, menu, speech bubble, mini chat), switching | done |
 | 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | done |
-| 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | done (not committed) |
+| 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | done |
 
-Where it stopped (2026-10-25): stages 1–9 are committed (stage 9 = `d49003e`). Stage 10
-is finished and tested but **not committed**. Suggested message:
-`Docs (architecture, pack guide, Godot beginner guide), measurements, final README/HANDOFF`.
+Where it stopped (2026-10-25): all stages are committed (stage 10 = `a323bd7`).
 All stages of the spec are done. What is left needs a person at the desktop (see "Not
-verified" under stage 8 and 9) and the export templates (GODOT_BEGINNER.md section 5).
+verified" under stage 8 and 9). The owner has since exported `app/export/Saki.exe`.
 
 Working rules from the owner: **Claude does not commit or push**; at the end of each stage
 it runs the tests, updates this file and gives a suggested commit message.

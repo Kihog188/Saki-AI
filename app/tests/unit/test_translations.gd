@@ -7,7 +7,9 @@ const SCAN_DIRS: PackedStringArray = ["res://core", "res://services", "res://ren
 
 func test_every_tr_key_has_a_vietnamese_text() -> void:
 	var known: Dictionary = _csv_keys()
-	var regex := RegEx.create_from_string("tr\\(\"([A-Z0-9_]+)\"\\)")
+	# Any quoted ALL_CAPS string with an underscore is a translation key: this catches
+	# tr("KEY"), I18n.t("KEY") and keys returned by functions (PackRules.check_path).
+	var regex := RegEx.create_from_string("\"([A-Z][A-Z0-9]*_[A-Z0-9_]+)\"")
 	var missing: PackedStringArray = []
 	for path: String in _script_files():
 		var text: String = FileAccess.get_file_as_string(path)

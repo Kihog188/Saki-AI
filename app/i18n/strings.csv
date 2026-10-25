@@ -1,2 +1,58 @@
 keys,vi
 APP_TITLE,Saki
+PACK_DEFAULT_NAME,Saki (mặc định)
+PACK_ERR_PATH_EMPTY,tên tệp trống
+PACK_ERR_PATH_BACKSLASH,"có dấu \ (hãy dùng dấu /)"
+PACK_ERR_PATH_ABSOLUTE,là đường dẫn tuyệt đối (có ổ đĩa hoặc bắt đầu bằng /)
+PACK_ERR_PATH_TRAVERSAL,"có "".."" hoặc ""."" (không được trỏ ra ngoài gói)"
+PACK_ERR_PATH_CHARS,"chỉ được dùng chữ không dấu, số, dấu chấm, - và _ (không có dấu cách, không bắt đầu bằng dấu chấm)"
+PACK_ERR_PATH_DEEP,lồng quá 4 cấp thư mục
+PACK_ERR_FILE_RULE,Tệp “{file}” không hợp lệ: {rule}.
+PACK_ERR_FORMAT_NEWER,"Gói này dùng định dạng {format}, mới hơn bản app hiện tại. Hãy cập nhật Saki."
+PACK_ERR_MANIFEST_SIZE,manifest.json quá lớn (tối đa 64 KB).
+PACK_ERR_MANIFEST_JSON,"manifest.json không phải JSON hợp lệ (dòng {line}: {msg})."
+PACK_ERR_FIELD,"Trường “{field}” trong manifest.json không hợp lệ: {rule}."
+PACK_ERR_MISSING,Thiếu trường “{field}” trong manifest.json.
+PACK_RULE_INT,phải là số nguyên
+PACK_RULE_FORMAT,phải là 1
+PACK_RULE_MAX_CHARS,tối đa {n} ký tự
+PACK_RULE_NAME,"chỉ gồm chữ thường không dấu, số và _, bắt đầu bằng chữ"
+PACK_RULE_ANCHOR,"phải là [x, y] với x và y từ 0 đến 1"
+PACK_RULE_OBJECT,phải là một đối tượng JSON { }
+PACK_RULE_FILE_LIST,phải là danh sách tên tệp không rỗng
+PACK_RULE_STRING,phải là chuỗi
+PACK_RULE_BOOL,phải là true hoặc false
+PACK_RULE_RANGE,phải nằm trong khoảng {lo}–{hi}
+PACK_ERR_ID,"“id” chỉ gồm chữ thường không dấu, số, - và _ (tối đa 64 ký tự)."
+PACK_ERR_ID_RESERVED,"Không thể dùng id “default”: đây là tên của gói có sẵn."
+PACK_ERR_ID_FOLDER,"“id” trong manifest.json (“{id}”) phải trùng với tên thư mục (“{folder}”)."
+PACK_ERR_FOLDER_NAME,"Tên thư mục “{folder}” không hợp lệ: chỉ gồm chữ thường không dấu, số, - và _."
+PACK_ERR_NO_EMOTIONS,"Gói 2d cần ít nhất một mục trong “emotions” hoặc “states”."
+PACK_ERR_ENTRY_KIND,"Mục “{field}” phải có đúng một trong ba khóa: image, sheet hoặc frames."
+PACK_ERR_TOO_MANY_FRAMES,Mục “{field}” có quá nhiều khung hình (tối đa {n}).
+PACK_ERR_NOT_IMAGE,"Tệp “{file}” ({field}) phải là ảnh .png, .jpg, .jpeg hoặc .webp."
+PACK_ERR_FILE_MISSING,"manifest.json nhắc tới tệp “{file}”, nhưng trong gói không có tệp này."
+PACK_ERR_NO_MANIFEST,Không tìm thấy manifest.json ở thư mục gốc của gói.
+PACK_ERR_ZIP_OPEN,Không mở được tệp gói.
+PACK_ERR_ZIP_CORRUPT,Tệp gói bị hỏng hoặc không phải tệp zip.
+PACK_ERR_ZIP64,Tệp gói dùng định dạng ZIP64 (quá lớn). Hãy nén lại bằng zip thường.
+PACK_ERR_ZIP_MULTIDISK,Tệp gói bị chia thành nhiều phần. Hãy nén lại thành một tệp.
+PACK_ERR_ZIP_TOO_BIG,Tệp gói quá lớn (tối đa {mb} MB).
+PACK_ERR_ZIP_METHOD,"Tệp “{file}” dùng kiểu nén không hỗ trợ (chỉ nhận Store và Deflate)."
+PACK_ERR_ZIP_BOMB,"Tệp “{file}” có tỉ lệ nén bất thường (nghi là zip bomb), gói bị từ chối."
+PACK_ERR_SYMLINK,"“{file}” là liên kết tượng trưng (symlink), không được phép trong gói."
+PACK_ERR_ENCRYPTED,"Tệp “{file}” có mật khẩu, không được phép trong gói."
+PACK_ERR_DUPLICATE,"Tên “{file}” bị trùng (không phân biệt hoa thường)."
+PACK_ERR_EXTENSION,"Tệp “{file}” có đuôi không được phép. Chỉ nhận: {allowed}."
+PACK_ERR_TOO_MANY_FILES,Gói có quá nhiều tệp (tối đa {n}).
+PACK_ERR_TOTAL_TOO_BIG,Gói sau khi giải nén quá lớn (tối đa {mb} MB).
+PACK_ERR_FOLDER_MISSING,Không mở được thư mục “{dir}”.
+PACK_ERR_IMAGE_UNREADABLE,"Không đọc được ảnh “{file}” (không phải PNG, JPEG hay WebP, hoặc ảnh bị hỏng)."
+PACK_ERR_IMAGE_TOO_BIG,"Ảnh “{file}” quá lớn ({w}×{h}, tối đa {max} px mỗi cạnh)."
+IMPORT_STEP_CHECK,Đang kiểm tra gói...
+IMPORT_STEP_FILE,Đang xử lý {file}...
+IMPORT_STEP_INSTALL,Đang cài gói...
+IMPORT_DONE,Đã nhập gói “{name}”.
+IMPORT_RESIZED,"Đã thu nhỏ {n} ảnh lớn hơn {max} px."
+IMPORT_ERR_REPLACE,Không thay được gói cũ “{id}”. Hãy đóng các chương trình đang mở thư mục gói rồi thử lại.
+IMPORT_ERR_WRITE,Không ghi được vào thư mục gói nhân vật.

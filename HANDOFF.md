@@ -16,7 +16,7 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 |---|---|---|
 | 1 | Backend: remove web UI and `/characters`, `protocol_version`, `/history?before=`, `POST /shutdown` | done |
 | 2 | Godot project skeleton: `core/` (EventBus, constants), `App` composition root, settings service + migration, translations, GUT setup | done |
-| 3 | Packs: manifest parser/validator, zip validator, importer (thread), index cache, loader, fallback chain, test-pack generator | todo |
+| 3 | Packs: manifest parser/validator, zip validator, importer (thread), index cache, loader, fallback chain, test-pack generator | done (not committed) |
 | 4 | Renderers: base class, registry, placeholder, 2d, unsupported fallback | todo |
 | 5 | Backend service: process manager, `BackendClient` (fake transport in tests), reconnect | todo |
 | 6 | Performance: tier resources, auto selection, FPS controller, debug overlay | todo |
@@ -25,7 +25,13 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 | 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | todo |
 | 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | todo |
 
-Where it stopped: stage 2 is committed. Next: stage 3 (packs).
+Where it stopped (paused by the owner, 2026-10-25): stages 1 and 2 are committed locally
+(`d98e550`, `1fc2863`, not pushed). Stage 3 is finished and tested but **not committed**:
+the owner commits and pushes. Suggested message: `Packs: manifest, zip validator,
+importer, index cache, loader, fallback chain`. Next: stage 4 (renderers).
+
+Working rules from the owner: **Claude does not commit or push**; at the end of each stage
+it runs the tests, updates this file and gives a suggested commit message.
 
 ### Spec deviations and notes (decided while planning)
 
@@ -69,6 +75,26 @@ Where it stopped: stage 2 is committed. Next: stage 3 (packs).
   `SettingsService` (versioned JSON, write-then-rename, type sanitising, migration 0→1).
   `i18n/strings.csv` (keys → Vietnamese) with a test that every `tr("KEY")` exists. GUT
   9.7.1 in `app/addons/gut/`; run `app/run_tests.ps1`. GUT: 10 passed.
+- **Stage 3 (packs, `app/services/packs/`).** `PackRules` (limits, path rules),
+  `PackManifest` (format 1 parser; errors name the field; unknown fields ignored; newer
+  format = unsupported; non-2d types only need common fields), `ZipInspector` (reads the
+  zip central directory: sizes, symlink bits, encryption, ZIP64), `PackValidator` (zip and
+  folder; traversal, absolute/drive paths, backslashes, symlinks, case-insensitive
+  duplicates, extensions, sizes, file count, zip-bomb ratio, manifest size, referenced
+  files exist; a zip with the pack inside one top-level folder is accepted),
+  `ImageProbe` (size from the header before decoding; decode by magic bytes),
+  `PackImporter` (extract to `.incoming_*`, re-encode every image, downscale above 4096 px
+  keeping sheet grids exact, thumbnail, SHA-256, swap into place), `PackIndex`
+  (`index.json`, re-validates only packs whose manifest mtime changed), `PackData`
+  (lazy textures per animation, tier downscale on load, fallback chain, states override),
+  `PackService` (activate/unload, import on a `Thread`, delete, dev reload), wired into
+  `App.boot()`. Frame lists use the ordered-list form only (no pattern form). The `idle`
+  state overrides only the resting emotion. Tools: `app/tools/generate_test_packs.gd`
+  (`godot --headless --path app -s res://tools/generate_test_packs.gd -- --count 200`).
+  Measured here: 200 packs, warm list 32 ms, cold first scan 2.2 s. GUT: 37 passed,
+  `pytest`: 158 passed. Note: tests write under `%APPDATA%\Saki\test_tmp` (cleaned per
+  test) and a headless boot created `characters\`, `characters_dev\`, `index.json` and
+  `app_settings.json` in `%APPDATA%\Saki`.
 
 ## Earlier rounds
 

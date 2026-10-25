@@ -7,6 +7,7 @@ extends Node
 ## and open no windows; main.gd calls boot() when the real app starts.
 
 var settings: SettingsService
+var packs: PackService
 
 var _booted: bool = false
 
@@ -19,3 +20,8 @@ func boot() -> void:
 	TranslationServer.set_locale("vi")
 	settings = SettingsService.new(SakiConst.SETTINGS_PATH, EventBus)
 	settings.load_file()
+	packs = PackService.new(EventBus)
+	add_child(packs)
+	packs.refresh()
+	var active: String = packs.activate(settings.get_value("active_pack"))
+	settings.set_value("active_pack", active)

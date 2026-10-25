@@ -19,16 +19,16 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 | 3 | Packs: manifest parser/validator, zip validator, importer (thread), index cache, loader, fallback chain, test-pack generator | done |
 | 4 | Renderers: base class, registry, placeholder, 2d, unsupported fallback | done |
 | 5 | Backend service: process manager, `BackendClient` (fake transport in tests), reconnect | done |
-| 6 | Performance: tier resources, auto selection, FPS controller, debug overlay | done (not committed) |
-| 7 | Shared UI components: message list (paging, node cap), bubble, sources, input, status, memories, settings, pack manager | todo |
+| 6 | Performance: tier resources, auto selection, FPS controller, debug overlay | done |
+| 7 | Shared UI components: message list (paging, node cap), bubble, sources, input, status, memories, settings, pack manager | done (not committed) |
 | 8 | Modes: chat window, desktop pet (transparency, passthrough, drag, scale, menu, speech bubble, mini chat), switching | todo |
 | 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | todo |
 | 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | todo |
 
-Where it stopped (2026-10-25): stages 1–5 are committed (stage 5 = `68a151b`). Stage 6 is
+Where it stopped (2026-10-25): stages 1–6 are committed (stage 6 = `bfb1d4e`). Stage 7 is
 finished and tested but **not committed**. Suggested message:
-`Performance: quality tiers, auto detection, FPS governor, F3 overlay`.
-Next: stage 7 (shared UI components).
+`Shared UI: chat session, mood, message list paging, panels, theme`.
+Next: stage 8 (modes: chat window, desktop pet, switching).
 
 Working rules from the owner: **Claude does not commit or push**; at the end of each stage
 it runs the tests, updates this file and gives a suggested commit message.
@@ -142,6 +142,27 @@ it runs the tests, updates this file and gives a suggested commit message.
   First real windowed run (empty window, no UI yet, backend on a throwaway data folder):
   backend started and ready in 5.4 s, app working set 134 MB, idle CPU 0 % over 10 s,
   no `pythonw` left after exit. GUT: 77 passed, `pytest`: 158 passed.
+- **Stage 7 (shared UI).** Non-UI logic in `app/services/chat/`: `ChatSession` (message
+  model shared by every mode; streaming, `reset`, authoritative `end`, "(đã dừng)",
+  errors; `load_recent` / `load_older` history paging; `/rmb` and `/fgt` system replies
+  emit `memories_changed`) and `MoodController` (thinking/talking/idle, turn emotion,
+  idle timeout per pack, click reactions). Components in `app/ui/` get a `UiContext`
+  (services + app actions) instead of using the `App` autoload: `chat/MessageBubble`
+  (plain-text `Label`s, ``` blocks monospace, right-click copies), `SourcesList`
+  (http/https only), `MessageList` (window of at most 120 live nodes, moves 10 messages per
+  step, asks for older pages at the top), `ChatInput` (Enter / Shift+Enter, Dừng only
+  while busy), `StatusLine` (+ "Thử lại" / "Khởi động lại"; wording in the tested
+  `StatusModel`), `ChatPanel` (the composition both modes use, `compact` for the pet),
+  `character/CharacterView`, `panels/MemoriesPanel`, `SettingsPanel`, `PackManager`,
+  `common/PanelWindow` (native window per panel), `theme/` (`light.tres`, `dark.tres`,
+  `ThemeBuilder`; "Theo Windows" follows dark mode live), `ChatFormat` helpers. `App`
+  creates the session, mood, `UiContext` and theme; history reloads on every connect.
+  Finding: 20 `RichTextLabel` bubbles (fit_content) took ~245 ms to lay out vs ~29 ms for
+  `Label`, so bubbles use `Label` (selection replaced by right-click copy). Windowed
+  benchmark `app/tools/message_list_bench.gd` (1,000 messages, 60 px per frame down to the
+  first message and back): median 16.6 ms, p95 17.7 ms, 39 of 5,201 frames over 33 ms
+  (max 142 ms, when the window shifts), never more than 120 live nodes. GUT: 100 passed,
+  `pytest`: 158 passed.
 
 ## Earlier rounds
 

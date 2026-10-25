@@ -11,6 +11,10 @@ var packs: PackService
 var backend_process: BackendProcess
 var backend: BackendClient
 var performance: PerformanceService
+var session: ChatSession
+var mood: MoodController
+## Services + actions handed to every UI component (see UiContext).
+var ui: UiContext
 
 var _booted: bool = false
 
@@ -45,6 +49,33 @@ func boot() -> void:
 	add_child(backend_process)
 	backend = BackendClient.new(EventBus, WebSocketTransport.new(), HttpRequestTransport.new(), backend_process.base_url())
 	add_child(backend)
+
+	session = ChatSession.new(EventBus, backend)
+	add_child(session)
+	mood = MoodController.new(EventBus)
+	add_child(mood)
+	EventBus.active_pack_changed.connect(func(_k: String) -> void: _sync_idle_seconds())
+	_sync_idle_seconds()
+	# Load history every time the socket (re)connects: the backend may have restarted.
+	EventBus.backend_state_changed.connect(func(state: StringName, _m: String) -> void:
+		if state == SakiConst.CONN_CONNECTED:
+			session.load_recent())
+
+	ui = UiContext.new()
+	ui.bus = EventBus
+	ui.settings = settings
+	ui.packs = packs
+	ui.backend = backend
+	ui.session = session
+	ui.performance = performance
+	ui.mood = mood
+	ui.restart_backend = start_backend
+	ui.detect_tier = run_tier_detection
+	apply_theme()
+	# "Theo Windows": re-theme when the user switches Windows between light and dark.
+	DisplayServer.set_system_theme_change_callback(func() -> void:
+		if settings.get_value("theme") == "system":
+			apply_theme())
 	start_backend()
 
 
@@ -62,8 +93,25 @@ func run_tier_detection() -> String:
 
 
 func _on_setting_changed(key: String, value: Variant) -> void:
-	if key == "quality":
-		performance.set_quality(String(value), settings.get_value("auto_tier"))
+	match key:
+		"quality":
+			performance.set_quality(String(value), settings.get_value("auto_tier"))
+		"theme":
+			apply_theme()
+
+
+## Builds the Godot Theme from the theme setting ("Theo Windows" follows dark mode) and
+## applies it to the main window and every open panel.
+func apply_theme() -> void:
+	ui.saki_theme = ThemeBuilder.resolve(settings.get_value("theme"))
+	ui.theme = ThemeBuilder.build(ui.saki_theme)
+	get_tree().root.theme = ui.theme
+	PanelWindow.apply_theme(ui.theme)
+	EventBus.theme_changed.emit(ui.saki_theme)
+
+
+func _sync_idle_seconds() -> void:
+	mood.set_idle_seconds(packs.active.manifest.idle_seconds if packs.active != null else 0.0)
 
 
 ## Starts the backend process if needed, then connects. Also used by "Khởi động lại".

@@ -77,3 +77,70 @@ BACKEND_START_FAILED,"Không khởi động được Saki. Xem nhật ký ở %A
 BACKEND_START_TIMEOUT,"Saki khởi động quá lâu. Hãy thử lại, hoặc xem nhật ký ở %APPDATA%\Saki\logs\saki.log."
 BACKEND_CRASHED,Saki đã dừng bất ngờ. Bấm Khởi động lại để chạy lại.
 HOTKEY_UNAVAILABLE,Không đăng ký được phím tắt toàn cục. Tính năng này đã tắt.
+CHAT_STOPPED,(đã dừng)
+SOURCE_NO_DATE,không rõ ngày
+SOURCE_PAYWALLED,(trả phí)
+SOURCE_NO_LINK,Không mở được liên kết này
+CHAT_PLACEHOLDER,"Nhắn cho Saki... (Enter để gửi, Shift+Enter xuống dòng)"
+CHAT_SEND,Gửi
+CHAT_STOP,Dừng
+ACTION_RETRY,Thử lại
+ACTION_RESTART,Khởi động lại
+ACTION_DELETE,Xóa
+ACTION_CANCEL,Hủy
+ACTION_SAVE,Lưu
+ACTION_BROWSE,Chọn...
+PANEL_MEMORIES,Ghi nhớ
+PANEL_SETTINGS,Cài đặt
+PANEL_PACKS,Nhân vật
+PANEL_CHAT,Trò chuyện với Saki
+MEMORIES_NOTE,"Saki dùng các ghi nhớ này trong mọi cuộc trò chuyện. Lệnh /clear chỉ xóa lịch sử trò chuyện, không xóa ghi nhớ."
+MEMORIES_ADD_PLACEHOLDER,"Thêm ghi nhớ (tối đa 200 ký tự), ví dụ: Tên tôi là Minh"
+MEMORIES_ADD,Thêm
+MEMORIES_ADDED,Đã thêm ghi nhớ.
+MEMORIES_EMPTY,Chưa có ghi nhớ nào.
+MEMORIES_CONFIRM_DELETE,Xóa ghi nhớ này?
+SETTINGS_SECTION_CHAT,Trò chuyện
+SETTINGS_SECTION_APP,Ứng dụng
+SETTINGS_SECTION_DATA,Dữ liệu
+SETTINGS_SELF_NAME,Saki tự xưng là
+SETTINGS_USER_NAME,Saki gọi bạn là
+SETTINGS_MODEL,Mô hình
+SETTINGS_MODEL_SUGGESTIONS,Gợi ý tên mô hình
+SETTINGS_SAVED,Đã lưu.
+SETTINGS_BACKEND_DIR,Thư mục backend
+SETTINGS_BACKEND_DIR_AUTO,Tự tìm (thư mục chứa app)
+SETTINGS_BACKEND_DIR_INVALID,"Thư mục này không có backend Saki (cần có saki\__main__.py và .venv\)."
+SETTINGS_BACKEND_DIR_SAVED,Đã lưu. Bấm Khởi động lại ở dòng trạng thái (hoặc mở lại app) để dùng thư mục mới.
+SETTINGS_QUALITY,Chất lượng hình ảnh
+SETTINGS_REDETECT,Đo lại
+SETTINGS_DETECTING,Đang đo cấu hình máy...
+SETTINGS_DETECTED,Mức máy tự chọn: {tier}.
+SETTINGS_THEME,Giao diện
+THEME_SYSTEM,Theo Windows
+THEME_LIGHT,Sáng
+THEME_DARK,Tối
+SETTINGS_PET_SCALE,Cỡ desktop pet
+SETTINGS_ALWAYS_ON_TOP,Desktop pet luôn nằm trên cùng
+SETTINGS_HOTKEY,Phím tắt toàn cục
+SETTINGS_HOTKEY_HINT,"Ví dụ: Ctrl+Shift+S. Bấm phím này ở bất kỳ đâu để hiện hoặc ẩn Saki."
+SETTINGS_DEBUG_OVERLAY,Bảng thông tin hiệu năng (F3)
+SETTINGS_SHORTCUT,Tạo lối tắt Desktop
+SETTINGS_SHORTCUT_UNAVAILABLE,Chỉ tạo được lối tắt khi chạy bản .exe đã xuất.
+SETTINGS_CLEAR_HISTORY,Xóa lịch sử trò chuyện
+SETTINGS_CLEAR_CONFIRM,"Xóa toàn bộ lịch sử trò chuyện? Ghi nhớ vẫn được giữ lại. Không thể hoàn tác."
+SETTINGS_HISTORY_CLEARED,Đã xóa lịch sử trò chuyện.
+PACKS_IMPORT,Nhập gói
+PACKS_FILE_TYPE,Gói nhân vật Saki
+PACKS_OPEN_DEV_FOLDER,Mở thư mục gói thử
+PACKS_RESCAN,Quét lại
+PACKS_DROP_HINT,Hoặc kéo tệp .sakip thả vào cửa sổ Saki.
+PACKS_IMPORT_BUSY,Đang nhập một gói khác. Hãy đợi xong rồi thử lại.
+PACKS_BROKEN,Gói bị lỗi
+PACKS_ACTIVE,đang dùng
+PACKS_DEV,gói thử
+PACKS_USE,Dùng gói này
+PACKS_RELOAD,Tải lại
+PACKS_CONFIRM_DELETE,Xóa gói “{name}”? Không thể hoàn tác.
+PACKS_INFO,"Tác giả: {author} · Loại: {type} · Phiên bản: {version}"
+CHAT_COPY_HINT,Chuột phải để sao chép tin nhắn

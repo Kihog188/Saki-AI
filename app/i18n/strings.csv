@@ -151,3 +151,5 @@ PACKS_DROP_ONLY_SAKIP,Chỉ nhận tệp gói nhân vật .sakip.
 ACTION_PICK_BACKEND,Chọn thư mục...
 BACKEND_PICK_TITLE,Chọn thư mục backend Saki (thư mục có saki\ và .venv\)
 BACKEND_PICK_INVALID,Thư mục này không có backend Saki (cần có saki\__main__.py và .venv\). Hãy chọn lại.
+SHORTCUT_CREATED,Đã tạo lối tắt Saki trên Desktop.
+SHORTCUT_FAILED,Không tạo được lối tắt. Xem nhật ký ở %APPDATA%\Saki\logs\app.log.

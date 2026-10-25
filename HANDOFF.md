@@ -21,14 +21,15 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 | 5 | Backend service: process manager, `BackendClient` (fake transport in tests), reconnect | done |
 | 6 | Performance: tier resources, auto selection, FPS controller, debug overlay | done |
 | 7 | Shared UI components: message list (paging, node cap), bubble, sources, input, status, memories, settings, pack manager | done |
-| 8 | Modes: chat window, desktop pet (transparency, passthrough, drag, scale, menu, speech bubble, mini chat), switching | done (not committed) |
-| 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | todo |
+| 8 | Modes: chat window, desktop pet (transparency, passthrough, drag, scale, menu, speech bubble, mini chat), switching | done |
+| 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | done (not committed) |
 | 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | todo |
 
-Where it stopped (2026-10-25): stages 1–7 are committed (stage 7 = `9dac148`). Stage 8 is
+Where it stopped (2026-10-25): stages 1–8 are committed (stage 8 = `51dea2c`). Stage 9 is
 finished and tested but **not committed**. Suggested message:
-`Modes: chat window, desktop pet, mode switching, UI snapshot tool`.
-Next: stage 9 (global hotkey, desktop shortcut, export preset, icon).
+`Global hotkey, desktop shortcut, Windows export preset, app icon`.
+Next: stage 10 (docs: ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER; measurements; final
+README/HANDOFF).
 
 Working rules from the owner: **Claude does not commit or push**; at the end of each stage
 it runs the tests, updates this file and gives a suggested commit message.
@@ -199,6 +200,27 @@ it runs the tests, updates this file and gives a suggested commit message.
   Windows (ANGLE/D3D11), click-through on transparent pixels, drag, Ctrl + wheel,
   right-click menu, always-on-top, mini chat placement, .sakip drag-and-drop, multi-monitor
   restore, dark theme on screen.
+- **Stage 9 (hotkey, shortcut, export, icon).** Backend `saki/hotkey.py`: combo parser,
+  `WindowsHotkeyBackend` (`RegisterHotKey` on its own message-loop thread via ctypes,
+  `AllowSetForegroundWindow` on a press so the app may come to the front), `HotkeyManager`
+  (Vietnamese status: not Windows / invalid / in use). Server: client→server
+  `hotkey_config`, server→client `hotkey_status` and `hotkey` (broadcast); released when the
+  last client disconnects; README protocol updated. App: sends the setting on every
+  connect and when it changes; `hotkey_status` failures become a notice; chat mode
+  toggles minimize/front, pet mode opens the mini chat. `services/platform/desktop_shortcut.gd`:
+  PowerShell + `WScript.Shell` .lnk with the exe icon, only for the exported .exe (from the
+  editor it says so). `tools/make_icon.gd` renders `assets/icon.svg` into
+  `assets/icon.ico` (16–256 px); `project.godot` uses it as the window icon.
+  `app/export_presets.cfg` (Windows x86_64, PCK embedded, excludes GUT/tests/tools,
+  includes `packs/*/manifest.json`, icon, version info, ANGLE auto). Checked for real:
+  `RegisterHotKey` register / conflict ("đang được một chương trình khác dùng") / release
+  with Ctrl+Alt+Shift+F24; registration through the real backend from Godot
+  (`tools/backend_smoke.gd`); the generated shortcut command against a temp folder
+  (target, working dir and icon correct); `.ico` read by System.Drawing; the preset parses
+  (export stops only at "No export template found"). **Not done here:** an actual export,
+  because the 4.7.2 export templates are 1.28 GB (owner step in GODOT_BEGINNER.md); a real
+  key press of the hotkey (no input injection into the owner's session).
+  pytest: 161 passed, GUT: 110 passed.
 
 ## Earlier rounds
 

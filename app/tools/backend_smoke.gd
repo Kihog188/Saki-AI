@@ -42,6 +42,13 @@ func _run() -> void:
 	while not client.connected and Time.get_ticks_msec() < deadline:
 		await process_frame
 	print("connected=%s protocol=%s llm_reachable=%s" % [client.connected, client.last_health.get("protocol_version"), client.llm_reachable])
+	# Global hotkey through the real backend (an unusual combo; no key is pressed).
+	var hotkey_ok: Array = []
+	bus.notice.connect(func(t: String) -> void: hotkey_ok.append("notice: " + t))
+	client.send_hotkey_config(true, "Ctrl+Alt+Shift+F24")
+	for _i: int in 30:
+		await process_frame
+	print("hotkey_config sent, notices: %s (none = registered)" % [hotkey_ok])
 	client.send_message("/help")
 	while not _ok and Time.get_ticks_msec() < deadline:
 		await process_frame

@@ -8,7 +8,7 @@ import hmac
 import json
 import logging
 import os
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import date
 
@@ -19,6 +19,7 @@ from . import __version__
 from .chat import ChatService
 from .config import AppConfig
 from .hardware import recommend_tier
+from .hotkey import HotkeyManager
 from .llm import LLMBackend, create_backend
 from .search.service import SearchProvider, create_search_service
 from .settings import SettingsError, SettingsStore
@@ -62,6 +63,7 @@ class AppState:
         llm: LLMBackend | None,
         search: SearchProvider | None,
         today: Callable[[], date],
+        hotkeys: HotkeyManager | None = None,
     ):
         self.cfg = cfg
         self.storage = storage
@@ -76,6 +78,9 @@ class AppState:
         self.chat = ChatService(cfg, storage, self.settings, lambda: self.llm, search, today=today)
         # Set by __main__ to stop uvicorn; None when the app runs under a test client.
         self.request_shutdown: Callable[[], None] | None = None
+        # Optional global hotkey (Windows). Every connected client's emit() gets the presses.
+        self.hotkeys = hotkeys if hotkeys is not None else HotkeyManager()
+        self.listeners: set[Callable[[dict], Awaitable[None]]] = set()
 
     async def apply_llm_settings(self) -> None:
         """Recreate the backend if llm_backend/model changed (only for an owned backend)."""
@@ -101,11 +106,12 @@ def create_app(
     search: SearchProvider | None = None,
     storage: Storage | None = None,
     today: Callable[[], date] = date.today,
+    hotkeys: HotkeyManager | None = None,
 ) -> FastAPI:
     cfg = cfg or AppConfig.load()
     owns_storage = storage is None
     storage = storage or Storage(cfg.db_path)
-    state = AppState(cfg, storage, llm, search, today)
+    state = AppState(cfg, storage, llm, search, today, hotkeys)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -116,7 +122,22 @@ def create_app(
         )
         if rec.warning:
             log.warning(rec.warning)
+        loop = asyncio.get_running_loop()
+
+        def on_hotkey() -> None:  # called on the hotkey thread
+            loop.call_soon_threadsafe(broadcast_hotkey)
+
+        async def send_hotkey(emit) -> None:
+            with contextlib.suppress(Exception):  # a client that is closing just misses it
+                await emit({"type": "hotkey"})
+
+        def broadcast_hotkey() -> None:
+            for emit in list(state.listeners):
+                asyncio.ensure_future(send_hotkey(emit))
+
+        state.hotkeys.on_press = on_hotkey
         yield
+        state.hotkeys.disable()
         await state.aclose()
         if owns_storage:
             storage.close()
@@ -208,6 +229,8 @@ def create_app(
             async with send_lock:
                 await ws.send_text(json.dumps(event, ensure_ascii=False))
 
+        state.listeners.add(emit)
+
         async def run_turn(text: str) -> None:
             try:
                 await state.chat.handle_message(text, emit)
@@ -241,11 +264,20 @@ def create_app(
                     current = asyncio.create_task(run_turn(msg["text"]))
                 elif kind == "cancel":
                     await cancel_current()
+                elif kind == "hotkey_config":
+                    # Registering waits for the hotkey thread: keep it off the event loop.
+                    ok, message = await asyncio.to_thread(
+                        state.hotkeys.configure, msg.get("enabled") is True, str(msg.get("combo", ""))
+                    )
+                    await emit({"type": "hotkey_status", "ok": ok, "message": message})
                 else:
                     await emit({"type": "error", "message": "Tin nhắn không hợp lệ."})
         except WebSocketDisconnect:
             pass
         finally:
+            state.listeners.discard(emit)
+            if not state.listeners:
+                state.hotkeys.disable()  # the app that asked for it is gone
             await cancel_current()
 
     return app

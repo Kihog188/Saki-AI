@@ -12,6 +12,7 @@ config/version="0.1.0"
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://assets/icon.svg"
+config/windows_native_icon="res://assets/icon.ico"
 ; user:// is %APPDATA%\Saki (the same folder as the backend data).
 config/use_custom_user_dir=true
 config/custom_user_dir_name="Saki"

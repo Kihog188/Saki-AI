@@ -56,10 +56,12 @@ func boot() -> void:
 	add_child(mood)
 	EventBus.active_pack_changed.connect(func(_k: String) -> void: _sync_idle_seconds())
 	_sync_idle_seconds()
-	# Load history every time the socket (re)connects: the backend may have restarted.
+	# On every (re)connect: reload history and re-send the hotkey choice (the backend may
+	# have restarted, and it releases the hotkey when no client is connected).
 	EventBus.backend_state_changed.connect(func(state: StringName, _m: String) -> void:
 		if state == SakiConst.CONN_CONNECTED:
-			session.load_recent())
+			session.load_recent()
+			_send_hotkey_config())
 
 	ui = UiContext.new()
 	ui.bus = EventBus
@@ -71,6 +73,7 @@ func boot() -> void:
 	ui.mood = mood
 	ui.restart_backend = start_backend
 	ui.detect_tier = run_tier_detection
+	ui.create_shortcut = DesktopShortcut.create
 	apply_theme()
 	# "Theo Windows": re-theme when the user switches Windows between light and dark.
 	DisplayServer.set_system_theme_change_callback(func() -> void:
@@ -98,6 +101,14 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 			performance.set_quality(String(value), settings.get_value("auto_tier"))
 		"theme":
 			apply_theme()
+		"hotkey", "hotkey_enabled":
+			_send_hotkey_config()
+
+
+## Global hotkey: registered by the backend (Windows RegisterHotKey), see saki/hotkey.py.
+func _send_hotkey_config() -> void:
+	if backend.connected:
+		backend.send_hotkey_config(settings.get_value("hotkey_enabled"), settings.get_value("hotkey"))
 
 
 ## Builds the Godot Theme from the theme setting ("Theo Windows" follows dark mode) and

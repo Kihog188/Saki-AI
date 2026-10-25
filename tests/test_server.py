@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from saki.config import AppConfig
+from saki.hotkey import HotkeyManager
 from saki.llm import FakeBackend, LLMUnavailableError
 from saki.prompts import build_search_message, render_system_prompt
 from saki.search.models import SearchResult
@@ -41,7 +42,9 @@ def env(tmp_path):
     storage = Storage(tmp_path / "saki.db")
     llm = FakeBackend()
     search = FakeSearch()
-    app = create_app(cfg, llm=llm, search=search, storage=storage, today=lambda: TODAY)
+    # auto=False: tests never touch the real Windows hotkey API.
+    app = create_app(cfg, llm=llm, search=search, storage=storage, today=lambda: TODAY,
+                     hotkeys=HotkeyManager(auto=False))
     with TestClient(app) as client:
         yield client, llm, search, storage
     storage.close()

@@ -191,3 +191,9 @@ func test_hotkey_events() -> void:
 	await wait_process_frames(2)
 	assert_signal_emitted(_bus, "hotkey_pressed")
 	assert_signal_emitted_with_parameters(_bus, "notice", ["Không đăng ký được phím tắt toàn cục. Tính năng này đã tắt."])
+
+
+func test_hotkey_config_message() -> void:
+	await _connect()
+	_client.send_hotkey_config(true, "Ctrl+Shift+S")
+	assert_eq(_ws.sent[-1], {"type": "hotkey_config", "enabled": true, "combo": "Ctrl+Shift+S"})

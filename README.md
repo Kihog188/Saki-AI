@@ -134,9 +134,16 @@ All frames are JSON text.
 ```json
 {"type": "user_message", "text": "Xin chào"}
 {"type": "cancel"}
+{"type": "hotkey_config", "enabled": true, "combo": "Ctrl+Shift+S"}
 ```
 
 Sending a new `user_message` while a reply is still streaming cancels that reply first.
+
+`hotkey_config` (optional) asks the backend to register a global hotkey (Windows only,
+`RegisterHotKey` in [saki/hotkey.py](saki/hotkey.py)). `combo` is modifiers (`Ctrl`,
+`Shift`, `Alt`, `Win`, at least one) plus a key (`A`–`Z`, `0`–`9`, `F1`–`F24`, `Space`,
+`Tab`, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, arrows). `enabled: false`
+releases it. The hotkey is also released when the last WebSocket client disconnects.
 
 **Server → client**
 
@@ -150,6 +157,8 @@ Sending a new `user_message` while a reply is still streaming cancels that reply
 | `{"type":"error","message":"..."}` | user-facing Vietnamese error. The turn is over |
 | `{"type":"cancelled"}` | the current turn was cancelled. The turn is over |
 | `{"type":"reset"}` | the reply just streamed repeated a recent answer. Discard the text shown so far; a new `start` and new `delta`s follow |
+| `{"type":"hotkey_status","ok":true,"message":""}` | answer to `hotkey_config`. `ok: false` with a Vietnamese `message` when it is unsupported (not Windows), invalid, or already used by another program |
+| `{"type":"hotkey"}` | the global hotkey was pressed (sent to every connected client). Not part of a turn |
 
 Emotions: `neutral`, `happy`, `sad`, `thinking`, `surprised`, `embarrassed`.
 Every turn ends with exactly one `end`, `error` or `cancelled`. `reset` happens at most
@@ -328,6 +337,7 @@ saki/
   server.py        FastAPI app: /ws + REST
   storage.py       SQLite
   hardware.py      free RAM -> tier; ModelProvisioner interface (TODO)
+  hotkey.py        optional global hotkey for the desktop app (Windows RegisterHotKey)
   cli.py           terminal client
   llm/             base.py, ollama.py, llamacpp.py, fake.py
   search/          models.py, ddg.py, rss.py, news.py, service.py, cache.py, sources.json

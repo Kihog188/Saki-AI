@@ -17,18 +17,18 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 | 1 | Backend: remove web UI and `/characters`, `protocol_version`, `/history?before=`, `POST /shutdown` | done |
 | 2 | Godot project skeleton: `core/` (EventBus, constants), `App` composition root, settings service + migration, translations, GUT setup | done |
 | 3 | Packs: manifest parser/validator, zip validator, importer (thread), index cache, loader, fallback chain, test-pack generator | done |
-| 4 | Renderers: base class, registry, placeholder, 2d, unsupported fallback | done (not committed) |
-| 5 | Backend service: process manager, `BackendClient` (fake transport in tests), reconnect | todo |
+| 4 | Renderers: base class, registry, placeholder, 2d, unsupported fallback | done |
+| 5 | Backend service: process manager, `BackendClient` (fake transport in tests), reconnect | done (not committed) |
 | 6 | Performance: tier resources, auto selection, FPS controller, debug overlay | todo |
 | 7 | Shared UI components: message list (paging, node cap), bubble, sources, input, status, memories, settings, pack manager | todo |
 | 8 | Modes: chat window, desktop pet (transparency, passthrough, drag, scale, menu, speech bubble, mini chat), switching | todo |
 | 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | todo |
 | 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | todo |
 
-Where it stopped (2026-10-25): stages 1–3 are committed (`7152405` is stage 3, by the
-owner). Stage 4 is finished and tested but **not committed**. Suggested message:
-`Renderers: base class, registry, 2d and placeholder renderers, fallback`.
-Next: stage 5 (backend service).
+Where it stopped (2026-10-25): stages 1–4 are committed (stage 4 = `afb58f1`). Stage 5 is
+finished and tested but **not committed**. Suggested message:
+`Backend service: process manager, BackendClient, reconnect, smoke test`.
+Next: stage 6 (performance tiers, FPS governor, debug overlay).
 
 Working rules from the owner: **Claude does not commit or push**; at the end of each stage
 it runs the tests, updates this file and gives a suggested commit message.
@@ -107,6 +107,24 @@ it runs the tests, updates this file and gives a suggested commit message.
   computed once at load in `PackData` (no GPU read-back later). `QualityTier` Resource
   class added (tier files come in stage 6). GUT: 46 passed (incl. each renderer standalone
   in an empty scene, a simulated deleted renderer folder, a broken pack).
+- **Stage 5 (backend service, `app/services/backend/`).** Interfaces `WsTransport`
+  (real: `WebSocketTransport`), `HttpTransport` (real: `HttpRequestTransport`; also
+  `port_open()` TCP check) and `ProcessLauncher`, so tests use fakes
+  (`tests/helpers/fakes.gd`). `BackendClient`: health check → protocol check → WebSocket;
+  reconnect 1/2/5/10 s; defensive event parsing (unknown types ignored); supersede (cancel,
+  wait for the terminal event ≤ 3 s, then send); socket loss mid-turn ends the turn with
+  "Mất kết nối với Saki"; REST helpers return the backend's Vietnamese `detail`.
+  `BackendProcess`: finds the repo (setting, else the project folder / .exe folder and up to
+  4 parents), probes the port (TCP, then `/health`: Saki → use it, not owned; anything else
+  → "Cổng ... đang bị một ứng dụng khác sử dụng"), starts `pythonw -m saki --port N` with
+  `PYTHONPATH` and a random `SAKI_SHUTDOWN_TOKEN`, waits up to 90 s, watches it once per
+  second and only reports a crash; `stop()` = blocking `POST /shutdown`, wait 3 s, then
+  `taskkill /T /F`. Wired into `App.boot()` (`start_backend()` is the "Khởi động lại"
+  action; `shutdown()` on window close). Finding: on Windows a refused connection to
+  127.0.0.1 shows up in `HTTPRequest` as a timeout (result 13) after about 1.5 s, hence the
+  TCP check. Real-backend check `app/tools/backend_smoke.gd` (throwaway `SAKI_DATA_DIR`):
+  started hidden in 7.3 s, protocol 1, `/help` answered, graceful stop 346 ms, no process
+  left. GUT: 70 passed.
 
 ## Earlier rounds
 

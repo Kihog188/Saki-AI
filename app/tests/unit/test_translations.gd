@@ -2,6 +2,8 @@ extends GutTest
 ## Every tr("KEY") used in the code must have a Vietnamese text in i18n/strings.csv.
 
 const CSV_PATH: String = "res://i18n/strings.csv"
+## ALL_CAPS strings that are not translation keys (environment variable names...).
+const NOT_KEYS: PackedStringArray = ["SAKI_SHUTDOWN_TOKEN"]
 const SCAN_DIRS: PackedStringArray = ["res://core", "res://services", "res://renderers", "res://ui", "res://modes"]
 
 
@@ -14,7 +16,7 @@ func test_every_tr_key_has_a_vietnamese_text() -> void:
 	for path: String in _script_files():
 		var text: String = FileAccess.get_file_as_string(path)
 		for m: RegExMatch in regex.search_all(text):
-			if not known.has(m.get_string(1)):
+			if not known.has(m.get_string(1)) and not NOT_KEYS.has(m.get_string(1)):
 				missing.append("%s: %s" % [path, m.get_string(1)])
 	assert_eq(missing, PackedStringArray(), "keys missing in strings.csv")
 

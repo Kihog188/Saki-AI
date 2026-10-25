@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="QualityTier" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://services/performance/quality_tier.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "high"
+label_key = "TIER_HIGH"
+rank = 2
+idle_fps = 15
+active_fps = 60
+busy_fps = 10
+max_texture_size = 4096
+linear_filter = true
+animations = true
+effects = true

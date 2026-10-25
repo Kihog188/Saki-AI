@@ -18,17 +18,17 @@ on the dev machine at `D:\App\Godot 4.7.2\`), Compatibility renderer, GDScript o
 | 2 | Godot project skeleton: `core/` (EventBus, constants), `App` composition root, settings service + migration, translations, GUT setup | done |
 | 3 | Packs: manifest parser/validator, zip validator, importer (thread), index cache, loader, fallback chain, test-pack generator | done |
 | 4 | Renderers: base class, registry, placeholder, 2d, unsupported fallback | done |
-| 5 | Backend service: process manager, `BackendClient` (fake transport in tests), reconnect | done (not committed) |
-| 6 | Performance: tier resources, auto selection, FPS controller, debug overlay | todo |
+| 5 | Backend service: process manager, `BackendClient` (fake transport in tests), reconnect | done |
+| 6 | Performance: tier resources, auto selection, FPS controller, debug overlay | done (not committed) |
 | 7 | Shared UI components: message list (paging, node cap), bubble, sources, input, status, memories, settings, pack manager | todo |
 | 8 | Modes: chat window, desktop pet (transparency, passthrough, drag, scale, menu, speech bubble, mini chat), switching | todo |
 | 9 | Global hotkey (backend `RegisterHotKey`), desktop shortcut, export preset, icon | todo |
 | 10 | Docs (ARCHITECTURE, PACK_GUIDE, GODOT_BEGINNER), measurements, final README/HANDOFF | todo |
 
-Where it stopped (2026-10-25): stages 1–4 are committed (stage 4 = `afb58f1`). Stage 5 is
+Where it stopped (2026-10-25): stages 1–5 are committed (stage 5 = `68a151b`). Stage 6 is
 finished and tested but **not committed**. Suggested message:
-`Backend service: process manager, BackendClient, reconnect, smoke test`.
-Next: stage 6 (performance tiers, FPS governor, debug overlay).
+`Performance: quality tiers, auto detection, FPS governor, F3 overlay`.
+Next: stage 7 (shared UI components).
 
 Working rules from the owner: **Claude does not commit or push**; at the end of each stage
 it runs the tests, updates this file and gives a suggested commit message.
@@ -125,6 +125,23 @@ it runs the tests, updates this file and gives a suggested commit message.
   TCP check. Real-backend check `app/tools/backend_smoke.gd` (throwaway `SAKI_DATA_DIR`):
   started hidden in 7.3 s, protocol 1, `/help` answered, graceful stop 346 ms, no process
   left. GUT: 70 passed.
+- **Stage 6 (performance, `app/services/performance/`).** Tiers are data:
+  `tiers/low.tres`, `medium.tres`, `high.tres` (`QualityTier`: idle/active/busy FPS,
+  max texture size, filtering, animations, effects). `TierSelector` (pure): free RAM,
+  GPU name and a 45-frame benchmark can each only lower the tier; FPS priority minimized >
+  busy > active (input in the last 1.5 s) > idle. `PerformanceService` sets
+  `Engine.max_fps` and the low-processor sleep, turns `RenderingServer.render_loop_enabled`
+  off while the chat window is minimized (the pet never counts as minimized), and listens
+  to `busy_changed`. `App` connects `quality_tier_changed` to the pack texture limit and the
+  `quality` setting to the service; first run (no `auto_tier`) runs the detection after
+  the window appears. `ui/debug_overlay/` (F3, remembered): FPS and cap, static and
+  texture memory, tier, state, active pack. Findings on the dev machine: Godot uses ANGLE
+  (Direct3D 11) on the HD 4000 because of its OpenGL driver (automatic, works);
+  `OS.get_memory_info()["available"]` includes the page file on Windows (15.5 GB on an
+  8 GB machine), so `free` is used. Auto detection here: frame 16.4 ms, HD 4000 → medium.
+  First real windowed run (empty window, no UI yet, backend on a throwaway data folder):
+  backend started and ready in 5.4 s, app working set 134 MB, idle CPU 0 % over 10 s,
+  no `pythonw` left after exit. GUT: 77 passed, `pytest`: 158 passed.
 
 ## Earlier rounds
 

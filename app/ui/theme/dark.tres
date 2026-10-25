@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="SakiTheme" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/theme/saki_theme.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "dark"
+background = Color(0.106, 0.098, 0.118, 1)
+panel = Color(0.149, 0.137, 0.165, 1)
+text = Color(0.925, 0.906, 0.937, 1)
+text_muted = Color(0.627, 0.6, 0.663, 1)
+border = Color(0.247, 0.231, 0.275, 1)
+accent = Color(0.902, 0.42, 0.565, 1)
+accent_text = Color(1, 1, 1, 1)
+user_bubble = Color(0.341, 0.188, 0.255, 1)
+assistant_bubble = Color(0.192, 0.18, 0.212, 1)
+system_bubble = Color(0.176, 0.192, 0.235, 1)
+error_bubble = Color(0.333, 0.145, 0.137, 1)
+error_text = Color(1, 0.682, 0.643, 1)
+warn_text = Color(1, 0.808, 0.478, 1)
+code_background = Color(0.067, 0.063, 0.078, 1)
+code_text = Color(0.925, 0.906, 0.937, 1)
+link = Color(0.533, 0.761, 1, 1)

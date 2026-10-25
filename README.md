@@ -2,7 +2,9 @@
 
 Local-first backend for **Saki**, a desktop AI companion. It runs a small fine-tuned
 model (Qwen2.5-1.5B, GGUF q4_k_m) through Ollama or llama.cpp, and lets any frontend
-(Godot, Unity, a terminal) chat with it over a WebSocket on `127.0.0.1`.
+chat with it over a WebSocket on `127.0.0.1`. The desktop app is written in Godot 4 and
+lives in [app/](app/) (see [app/GODOT_BEGINNER.md](app/GODOT_BEGINNER.md)). It starts this
+backend by itself; a terminal client (`saki.cli`) is kept for debugging.
 
 - No API keys, no telemetry. The only network traffic is search queries and RSS fetches.
 - Built for weak machines: no PyTorch, no vector DB, small dependency list.
@@ -26,36 +28,16 @@ ollama list                      # should show saki:latest
 ## Running
 
 ```powershell
-.venv\Scripts\python -m saki                 # server + web chat page at http://127.0.0.1:8765/
+.venv\Scripts\python -m saki                 # server only (the desktop app normally starts it)
 .venv\Scripts\python -m saki.cli             # terminal client, in a second window
 ```
 
-Server options: `--port N`, `--data-dir DIR`, `--log-level DEBUG|INFO|WARNING|ERROR`,
-`--no-browser`.
+Server options: `--port N`, `--data-dir DIR`, `--log-level DEBUG|INFO|WARNING|ERROR`.
 
-`python -m saki` opens the chat page in the default browser once the server is listening
-(turn this off with `--no-browser` or `"open_browser": false` in `config.json`). If the
-port is already taken by a running Saki, it prints `Saki đang chạy sẵn ở ...` and just
-opens the browser there. If another program holds the port, it prints a Vietnamese
-message and exits with code 1.
-
-## Web chat page
-
-A simple browser UI for daily testing, served by the backend itself at
-`http://127.0.0.1:<port>/` (files in [saki/web/](saki/web/)). Plain HTML, CSS and ES
-modules: no build step, no npm, no CDN, works offline. Godot/Unity will replace it later.
-
-- Character panel (image for the current emotion, status line) and chat panel (streaming
-  replies, Stop button, clickable sources for `/se` and `/news`).
-- **Ghi nhớ** drawer: list, add and delete memories. **Cài đặt** drawer: address pair,
-  model, character pack, and "Xóa lịch sử trò chuyện".
-- The last 50 messages are loaded on open. The page reconnects by itself (1 s, 2 s, 5 s,
-  then every 10 s) when the backend restarts.
-- Enter sends, Shift+Enter adds a line. While Saki is answering, the Send button is
-  disabled; pressing Enter with a new message stops the current answer (the page waits
-  for its `cancelled`, at most 3 s) and then sends the new one.
-- Model output is only ever inserted as text, never as HTML. The page has a strict
-  Content-Security-Policy (same origin only).
+If the port is already taken by a running Saki, `python -m saki` prints
+`Saki đang chạy sẵn ở ...` and exits with code 0. If another program holds the port, it
+prints a Vietnamese message and exits with code 1. Under `pythonw.exe` (no console) these
+messages go to the log file only.
 
 In the CLI, type a message or a command. `/cancel` stops the current answer and `/quit`
 exits. Typing a new message while Saki is answering also cancels the old answer.
@@ -93,22 +75,23 @@ Data lives in `%APPDATA%\Saki\` (`~/Library/Application Support/Saki` on macOS,
   saki.db          SQLite: settings, messages (history), memories
   config.json      optional, see below
   logs\saki.log    rotating log, 4 files x 1 MB
-  characters\      optional character packs, see "Gói nhân vật"
 ```
+
+The desktop app keeps its own files in the same folder (`app_settings.json`,
+`characters\`, `characters_dev\`, `logs\app.log`); see
+[app/GODOT_BEGINNER.md](app/GODOT_BEGINNER.md).
 
 `config.json` is optional. Any key you leave out keeps its default:
 
 ```json
 {
   "port": 8765,
-  "open_browser": true,
   "llm_backend": "ollama",
   "model": "saki",
   "ollama_url": "http://127.0.0.1:11434",
   "llamacpp_url": "http://127.0.0.1:8080",
   "self_name": "Saki",
   "user_name": "bạn",
-  "character_pack": "default",
   "temperature": 0.3,
   "top_p": 0.8,
   "num_ctx": 2048,
@@ -130,9 +113,10 @@ Data lives in `%APPDATA%\Saki\` (`~/Library/Application Support/Saki` on macOS,
 }
 ```
 
-`self_name`, `user_name`, `character_pack`, `llm_backend`, `model` and `port` are defaults only. Values
+`self_name`, `user_name`, `llm_backend`, `model` and `port` are defaults only. Values
 saved with `/xh` or `PUT /settings` are stored in SQLite and take precedence. The server
-always binds to `127.0.0.1`.
+always binds to `127.0.0.1`. The keys `open_browser` and `character_pack` from the web UI
+version are ignored if they are still in an old `config.json`.
 
 News sources are listed in [saki/search/sources.json](saki/search/sources.json): name,
 type (`rss`, `google_news` or `ddgs_news`), URL or `site:` filter, language,
@@ -150,9 +134,16 @@ All frames are JSON text.
 ```json
 {"type": "user_message", "text": "Xin chào"}
 {"type": "cancel"}
+{"type": "hotkey_config", "enabled": true, "combo": "Ctrl+Shift+S"}
 ```
 
 Sending a new `user_message` while a reply is still streaming cancels that reply first.
+
+`hotkey_config` (optional) asks the backend to register a global hotkey (Windows only,
+`RegisterHotKey` in [saki/hotkey.py](saki/hotkey.py)). `combo` is modifiers (`Ctrl`,
+`Shift`, `Alt`, `Win`, at least one) plus a key (`A`–`Z`, `0`–`9`, `F1`–`F24`, `Space`,
+`Tab`, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, arrows). `enabled: false`
+releases it. The hotkey is also released when the last WebSocket client disconnects.
 
 **Server → client**
 
@@ -166,6 +157,8 @@ Sending a new `user_message` while a reply is still streaming cancels that reply
 | `{"type":"error","message":"..."}` | user-facing Vietnamese error. The turn is over |
 | `{"type":"cancelled"}` | the current turn was cancelled. The turn is over |
 | `{"type":"reset"}` | the reply just streamed repeated a recent answer. Discard the text shown so far; a new `start` and new `delta`s follow |
+| `{"type":"hotkey_status","ok":true,"message":""}` | answer to `hotkey_config`. `ok: false` with a Vietnamese `message` when it is unsupported (not Windows), invalid, or already used by another program |
+| `{"type":"hotkey"}` | the global hotkey was pressed (sent to every connected client). Not part of a turn |
 
 Emotions: `neutral`, `happy`, `sad`, `thinking`, `surprised`, `embarrassed`.
 Every turn ends with exactly one `end`, `error` or `cancelled`. `reset` happens at most
@@ -236,68 +229,57 @@ When the model server is down:
 
 | Method & path | Body / response |
 |---|---|
-| `GET /health` | `{"status":"ok","version":"0.1.0","llm":{"backend":"ollama","model":"saki","reachable":true,"model_available":true,"detail":""},"hardware":{"free_ram_gb":1.83,"tier":"small","model_hint":"qwen2.5-0.5b","warning":null}}` |
-| `GET /settings` | `{"self_name":"Saki","user_name":"bạn","character_pack":"default","llm_backend":"ollama","model":"saki","port":8765}` |
-| `PUT /settings` | partial body, e.g. `{"self_name":"em","user_name":"anh"}` → new settings plus `"restart_required": bool` (true when the port changed). 400 with a Vietnamese `detail` for invalid values, including a `character_pack` that is unknown or invalid |
-| `GET /history?limit=50` | `{"messages":[{"role":"assistant","content":"...","emotion":"happy","kind":"chat","created_at":1760890000.0}, ...]}`. `kind` is `chat` or `search`. `emotion` is set on assistant messages |
+| `GET /health` | `{"status":"ok","version":"0.1.0","protocol_version":1,"llm":{"backend":"ollama","model":"saki","reachable":true,"model_available":true,"detail":""},"hardware":{"free_ram_gb":1.83,"tier":"small","model_hint":"qwen2.5-0.5b","warning":null}}` |
+| `GET /settings` | `{"self_name":"Saki","user_name":"bạn","llm_backend":"ollama","model":"saki","port":8765}` |
+| `PUT /settings` | partial body, e.g. `{"self_name":"em","user_name":"anh"}` → new settings plus `"restart_required": bool` (true when the port changed). 400 with a Vietnamese `detail` for invalid values. Unknown keys are ignored |
+| `GET /history?limit=50&before=<id>` | `{"messages":[{"id":12,"role":"assistant","content":"...","emotion":"happy","kind":"chat","created_at":1760890000.0}, ...]}`, oldest first. `kind` is `chat` or `search`. `emotion` is set on assistant messages. `before` (optional) returns only messages with a smaller `id`, for paging back through older history |
 | `DELETE /history` | `{"ok":true}` |
 | `GET /memories` | `{"memories":[{"id":1,"text":"...","created_at":...}]}` |
 | `POST /memories` | `{"text":"..."}` → 201 with the memory, or 400 (empty, too long, store full) |
 | `DELETE /memories/{id}` | `{"ok":true}` or 404 |
-| `GET /characters` | `{"packs":[{"id":"default","name":"Saki (mặc định)","author":"Saki","builtin":true,"valid":true,"error":null}, ...]}`. Invalid user packs are listed with `valid: false` and a Vietnamese `error` |
-| `GET /characters/{pack_id}/manifest` | the validated manifest with image URLs: `{"format":1,"id":"default","name":"...","author":"...","builtin":true,"idle_seconds":10,"default":"/characters/default/files/neutral.svg","emotions":{"neutral":"...","happy":"...",...}}`. All six emotions are present (missing ones point at `default`). 404 with `detail` if the pack is missing or invalid |
-| `GET /characters/{pack_id}/files/{filename}` | one image referenced by the manifest, with the right `Content-Type` and `X-Content-Type-Options: nosniff`. Anything else is 404 |
-| `GET /`, `GET /static/...` | the web chat page |
+| `POST /shutdown` | stops the server. Only exists when the backend was started with the environment variable `SAKI_SHUTDOWN_TOKEN` set, and needs the header `X-Saki-Token: <that value>` (403 otherwise, 404 without the variable). The desktop app uses it to stop the backend it started |
+
+`protocol_version` (currently `1`) changes only when the contract above changes in a way
+that clients must handle. The desktop app refuses to talk to a backend with another
+version and says so. Version 1 removed the web page (`GET /`, `/static/*`), the
+`/characters` endpoints and the `character_pack` setting, and added `id`/`before` to
+`/history` and `/shutdown`.
 
 Hardware tiers by free RAM: under 1.2 GB is `insufficient` (with a warning), 1.2–2.5 GB
 is `small` (0.5B model recommended), above that is `standard` (1.5B). The backend only
 reports the tier; it never switches models by itself.
 
+## Desktop app (`app/`)
+
+Godot 4.7.2 (Compatibility renderer, GDScript). It starts this backend hidden
+(`pythonw -m saki`), stops it on exit, and has two display modes: a chat window and a
+transparent desktop pet. Docs (Vietnamese):
+
+- [app/GODOT_BEGINNER.md](app/GODOT_BEGINNER.md): install Godot, run, tests, export
+  `Saki.exe`, desktop shortcut, where logs and settings live, troubleshooting.
+- [app/ARCHITECTURE.md](app/ARCHITECTURE.md): layers, EventBus signals, the flow of one
+  chat turn, how to add a renderer.
+- [app/PACK_GUIDE.md](app/PACK_GUIDE.md): character pack format and `.sakip` import.
+
+Measured on the dev machine (i5-3360M, Intel HD 4000 through ANGLE/D3D11, 8 GB RAM, tier
+"Vừa", `app/tools/measure.gd`):
+
+| | Chat window | Desktop pet |
+|---|---|---|
+| App RAM (working set) | 158 MB | 153 MB |
+| CPU idle / busy | 0–0.5 % / 0–0.3 % of one core | 0 % / 0–1 % |
+| Loop rate idle / busy | 12 / 8 per second (tier caps) | 12 / 8 |
+
+Backend (`pythonw` + interpreter, no model loaded) 61 MB. Pack list with 200 packs: 32 ms
+from the cache, 2.2 s for the first scan. Scrolling 1,000 messages: median 16.6 ms per
+frame.
+
 ## Gói nhân vật
 
-Ảnh nhân vật được nạp từ một "gói": một thư mục chứa `manifest.json` và các tệp ảnh.
-Gói `default` có sẵn trong app (ảnh SVG tạm, chỉ là khuôn mặt đơn giản). Để dùng ảnh
-của bạn:
-
-1. Tạo thư mục `%APPDATA%\Saki\characters\<tên-gói>\`. Tên gói chỉ gồm chữ không
-   dấu, số, `-` và `_` (ví dụ `saki-ao-dai`).
-2. Chép ảnh vào thư mục đó và viết `manifest.json`:
-
-   ```json
-   {
-     "format": 1,
-     "name": "Saki",
-     "author": "",
-     "default": "neutral.png",
-     "idle_seconds": 10,
-     "emotions": {
-       "neutral": "neutral.png",
-       "happy": "happy.png",
-       "sad": "sad.png",
-       "thinking": "thinking.png",
-       "surprised": "surprised.png",
-       "embarrassed": "embarrassed.png"
-     }
-   }
-   ```
-
-3. Mở **Cài đặt → Nhân vật** trên trang chat, chọn gói rồi bấm **Lưu**.
-
-Quy tắc:
-
-- `format` phải là `1`. `name` bắt buộc (tối đa 50 ký tự), `author` tùy chọn.
-- `default` là ảnh bắt buộc. Cảm xúc nào không khai báo trong `emotions` sẽ dùng ảnh
-  `default`, nên một gói chỉ có `neutral.png` vẫn chạy được. Khai báo cảm xúc lạ (ngoài
-  6 cảm xúc trên) làm gói không hợp lệ.
-- `idle_seconds` (1–3600, mặc định 10): sau bao nhiêu giây không có gì mới thì nhân vật
-  quay về `neutral`.
-- Chỉ nhận ảnh `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, mỗi ảnh tối đa 5 MB.
-  `manifest.json` tối đa 64 KB. Gói người dùng **không được dùng SVG** (SVG có thể chứa
-  mã script). GIF/WebP động vẫn chạy bình thường. Chưa hỗ trợ sprite sheet.
-- Tên tệp chỉ gồm chữ không dấu, số, `-`, `_` và một dấu chấm trước đuôi. Ảnh phải nằm
-  ngay trong thư mục gói (không dùng thư mục con hay symlink).
-- Gói sai quy tắc vẫn hiện trong danh sách kèm lý do lỗi, nhưng không được nạp. Trang chat
-  khi đó dùng gói `default`. Không thể đặt tên gói là `default` (tên của gói có sẵn).
+Gói nhân vật giờ do app desktop quản lý (backend không còn biết gì về ảnh). Cách đơn giản
+nhất: một thư mục ảnh đã xóa nền, đặt tên theo biểu cảm (`neutral.png`, `happy.png`...),
+kéo thả vào cửa sổ Saki. Không cần `manifest.json` hay code. Chi tiết và phần nâng cao:
+[app/PACK_GUIDE.md](app/PACK_GUIDE.md).
 
 ## Switching to llama.cpp (`llama-server`)
 
@@ -363,43 +345,15 @@ Tests run without network access or Ollama. HTTP is mocked, `FakeBackend` stream
 replies, and search sources are faked. They cover exact prompt strings, command parsing,
 the search prompt builder, sources, emotion streaming edge cases, the CJK and command
 rewrites, storage limits, context trimming, the LLM adapters, the news aggregator, the
-full WebSocket/REST flow, the web page and static files, character pack validation and
-file-serving security, and the browser-opening startup logic. A fixture makes any test
-that tries to open a real browser fail.
-
-### Kiểm tra thủ công (trang chat)
-
-Chạy `python -m saki` (Ollama đang chạy, đã có model `saki`), rồi kiểm tra:
-
-- [ ] Trình duyệt tự mở `http://127.0.0.1:8765/`. Trạng thái hiện "Sẵn sàng".
-- [ ] Gửi "Xin chào": chữ hiện dần, ảnh nhân vật chuyển sang "thinking" rồi sang cảm xúc
-      của câu trả lời, khoảng 10 giây sau quay về "neutral".
-- [ ] `/se thời tiết Hà Nội` và `/news giá vàng`: trạng thái "Đang tìm kiếm...", dưới câu
-      trả lời có danh sách nguồn bấm được (mở tab mới), nguồn trả phí có "(trả phí)".
-- [ ] Gửi một câu dài rồi bấm **Dừng**: câu trả lời có "(đã dừng)", nút Gửi dùng lại được.
-- [ ] Đang trả lời thì gõ câu mới và Enter: câu cũ dừng, câu mới được trả lời.
-- [ ] `/rmb Tên tôi là Minh`: tin nhắn hệ thống hiện ra, mở **Ghi nhớ** thấy mục mới.
-      Xóa một mục (có hỏi xác nhận).
-- [ ] **Cài đặt**: đổi xưng hô thành `em` / `anh`, lưu, hỏi Saki một câu xem cách xưng
-      hô. Đổi mô hình sang tên không tồn tại: câu sau báo lỗi bằng tiếng Việt. Đổi lại
-      `saki`.
-- [ ] Tắt backend (Ctrl+C) khi trang đang mở: trạng thái "Mất kết nối với Saki", nút Gửi
-      bị khóa. Chạy lại `python -m saki --no-browser`: trang tự kết nối lại.
-- [ ] Tắt Ollama rồi tải lại trang: trạng thái "Chưa kết nối được với mô hình", gửi tin
-      nhắn thì hiện lỗi tiếng Việt.
-- [ ] Tạo gói `%APPDATA%\Saki\characters\thu\` chỉ có `neutral.png` và `manifest.json`
-      tối thiểu, chọn trong **Cài đặt**: ảnh đó hiện cho mọi cảm xúc.
-- [ ] Thu cửa sổ còn khoảng 360 px: vẫn dùng được, không có thanh cuộn ngang.
-- [ ] Đổi Windows sang chế độ tối: trang đổi màu theo.
-- [ ] Tải lại trang: 50 tin nhắn gần nhất hiện lại.
-- [ ] Chạy `python -m saki` lần thứ hai khi Saki đang chạy: in "Saki đang chạy sẵn ở ..."
-      và mở trang, không có traceback.
+full WebSocket/REST flow (including history paging and the shutdown token), and the
+startup logic for a busy port. The desktop app has its own tests (GUT), see
+[app/GODOT_BEGINNER.md](app/GODOT_BEGINNER.md).
 
 ## Project layout
 
 ```
 saki/
-  __main__.py      start the server, open the browser, handle a busy port
+  __main__.py      start the server, handle a busy port
   config.py        AppConfig, app-data paths, logging
   settings.py      editable settings (shared by /xh and PUT /settings)
   prompts.py       system prompt + search prompt builders
@@ -407,17 +361,15 @@ saki/
   postprocess.py   emotion tag, cleanup, rewrites, sources, streaming
   context.py       context-window trimming
   chat.py          one chat turn (transport-agnostic)
-  server.py        FastAPI app: /ws + REST + web page
-  characters.py    character packs: discovery, validation, safe file lookup
+  server.py        FastAPI app: /ws + REST
   storage.py       SQLite
   hardware.py      free RAM -> tier; ModelProvisioner interface (TODO)
+  hotkey.py        optional global hotkey for the desktop app (Windows RegisterHotKey)
   cli.py           terminal client
   llm/             base.py, ollama.py, llamacpp.py, fake.py
   search/          models.py, ddg.py, rss.py, news.py, service.py, cache.py, sources.json
-  packs/default/   built-in placeholder pack (manifest.json + one SVG per emotion)
-  web/             index.html, style.css, favicon.svg,
-                   js/ main.js, api.js, chat.js, character.js, panels.js
 tests/
+app/               Godot 4 desktop app (see app/ARCHITECTURE.md)
 ```
 
 ## Known limitations
@@ -434,3 +386,7 @@ tests/
   the model is retrained.
 - Model files are not downloaded automatically yet (see the TODO in `hardware.py`).
 - Changing the port requires a restart.
+- Desktop app: the pet's transparency, click-through, drag and resize, and a real press
+  of the global hotkey were built and unit-tested but not yet tried by a person on the
+  desktop. A real `Saki.exe` export was not made (export templates not installed on the
+  dev machine). See "Not verified" in [HANDOFF.md](HANDOFF.md).

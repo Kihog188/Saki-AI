@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from saki.config import AppConfig
+from saki.hotkey import HotkeyManager
 from saki.llm import FakeBackend, LLMUnavailableError
 from saki.prompts import build_search_message, render_system_prompt
 from saki.search.models import SearchResult
@@ -41,7 +42,9 @@ def env(tmp_path):
     storage = Storage(tmp_path / "saki.db")
     llm = FakeBackend()
     search = FakeSearch()
-    app = create_app(cfg, llm=llm, search=search, storage=storage, today=lambda: TODAY)
+    # auto=False: tests never touch the real Windows hotkey API.
+    app = create_app(cfg, llm=llm, search=search, storage=storage, today=lambda: TODAY,
+                     hotkeys=HotkeyManager(auto=False))
     with TestClient(app) as client:
         yield client, llm, search, storage
     storage.close()
@@ -306,13 +309,53 @@ def test_rest_health(env):
     assert h["status"] == "ok"
     assert h["llm"]["backend"] == "fake" and h["llm"]["reachable"] is True
     assert h["hardware"]["tier"] in ("insufficient", "small", "standard")
+    assert h["protocol_version"] == 1
+
+
+def test_web_ui_and_character_endpoints_are_gone(env):
+    client, *_ = env
+    for path in ("/", "/static/style.css", "/characters", "/characters/default/manifest"):
+        assert client.get(path).status_code == 404, path
+
+
+def test_stored_character_pack_setting_is_ignored(env):
+    client, _, _, storage = env
+    storage.set_setting("character_pack", "old-pack")  # written by the web UI version
+    assert "character_pack" not in client.get("/settings").json()
+    r = client.put("/settings", json={"character_pack": "x", "self_name": "em"})
+    assert r.status_code == 200 and "character_pack" not in r.json()
+
+
+def test_history_paging_over_rest(env):
+    client, _, _, storage = env
+    for i in range(5):
+        storage.add_message("user", f"m{i}")
+    page = client.get("/history?limit=2").json()["messages"]
+    assert [m["content"] for m in page] == ["m3", "m4"]
+    older = client.get(f"/history?limit=2&before={page[0]['id']}").json()["messages"]
+    assert [m["content"] for m in older] == ["m1", "m2"]
+
+
+def test_shutdown_needs_env_token(env, monkeypatch):
+    client, *_ = env
+    state = client.app.state.saki
+    calls = []
+    state.request_shutdown = lambda: calls.append(1)
+    monkeypatch.delenv("SAKI_SHUTDOWN_TOKEN", raising=False)
+    assert client.post("/shutdown").status_code == 404
+    monkeypatch.setenv("SAKI_SHUTDOWN_TOKEN", "abc123")
+    assert client.post("/shutdown").status_code == 403
+    assert client.post("/shutdown", headers={"X-Saki-Token": "nope"}).status_code == 403
+    assert calls == []
+    assert client.post("/shutdown", headers={"X-Saki-Token": "abc123"}).json() == {"ok": True}
+    assert calls == [1]
 
 
 def test_rest_settings(env):
     client, *_ = env
     s = client.get("/settings").json()
     assert s == {
-        "self_name": "Saki", "user_name": "bạn", "character_pack": "default",
+        "self_name": "Saki", "user_name": "bạn",
         "llm_backend": "ollama", "model": "saki", "port": 8765,
     }
     r = client.put("/settings", json={"self_name": "tớ", "user_name": "cậu"})

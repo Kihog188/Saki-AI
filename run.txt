@@ -1,0 +1,2 @@
+.venv\Scripts\python -m saki        # server ws://127.0.0.1:8765/ws
+.venv\Scripts\python -m saki.cli    # cửa sổ thứ hai

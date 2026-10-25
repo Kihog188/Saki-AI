@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Placeholder app icon until the owner provides art. -->
+  <circle cx="64" cy="64" r="58" fill="#f6b8c8" stroke="#7a3b52" stroke-width="6"/>
+  <circle cx="44" cy="58" r="8" fill="#3a2230"/>
+  <circle cx="84" cy="58" r="8" fill="#3a2230"/>
+  <path d="M44 84 Q64 100 84 84" fill="none" stroke="#3a2230" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="32" cy="76" r="7" fill="#f28aa5" opacity="0.7"/>
+  <circle cx="96" cy="76" r="7" fill="#f28aa5" opacity="0.7"/>
+</svg>

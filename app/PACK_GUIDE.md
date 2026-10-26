@@ -335,9 +335,12 @@ Gói lỗi nằm trong mục **Gói bị lỗi**, kèm lý do chính xác. Các 
 
 ## 8. Gói có sẵn
 
-App có sẵn gói `default` trong `app/packs/default/`. Khi thư mục này chưa có
-`manifest.json` và ảnh, app vẽ một khuôn mặt đơn giản bằng code. Muốn thay, chỉ cần đặt
-`manifest.json` và ảnh (theo định dạng trên, `"id": "default"`) vào `app/packs/default/`
-(tạo thư mục nếu chưa có), không phải sửa code. Sau đó mở project trong Godot một lần,
-hoặc chạy `app\run_tests.ps1`, để Godot import ảnh mới rồi mới export. Gói có sẵn không
-xóa được trong app.
+App có sẵn gói `default` (nhân vật Saki) trong `app/packs/default/`: 6 cảm xúc, mỗi cảm
+xúc 6 khung hình 392×503 (`neutral_01.png`...`embarrassed_06.png`, 6 khung/giây, lặp),
+`thumb.png` và `manifest.json`. Đây là ví dụ đầy đủ của kiểu `frames` ở mục 3.3.
+
+Muốn thay hình Saki, chỉ cần thay ảnh và `manifest.json` (giữ `"id": "default"`) trong
+`app/packs/default/`, không phải sửa code. Sau đó mở project trong Godot một lần, hoặc
+chạy `app\run_tests.ps1`, để Godot import ảnh mới rồi mới export. Nếu thư mục này bị xóa
+hoặc manifest hỏng, app quay về một khuôn mặt đơn giản vẽ bằng code. Gói có sẵn không xóa
+được trong app.

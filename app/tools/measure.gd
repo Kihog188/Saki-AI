@@ -34,6 +34,7 @@ func _run() -> void:
 	var t0: int = Time.get_ticks_usec()
 	var count: int = _app.packs.list().size()
 	print("pack list (cached): %d packs in %.1f ms" % [count, (Time.get_ticks_usec() - t0) / 1000.0])
+	_measure_pack()
 
 	for mode: StringName in [SakiConst.MODE_CHAT, SakiConst.MODE_PET]:
 		_main.switch_mode(mode)
@@ -47,6 +48,21 @@ func _run() -> void:
 	if _backup != "":
 		var f := FileAccess.open(SakiConst.SETTINGS_PATH, FileAccess.WRITE)
 		f.store_string(_backup)
+
+
+## Loads every emotion of the active pack once (as a long chat would) and prints the load
+## time and the texture memory after each one.
+func _measure_pack() -> void:
+	var pack: PackData = _app.packs.active
+	print("active pack: %s, type %s, max texture %d" % [pack.entry["key"], pack.manifest.type, pack.max_texture_size])
+	for emotion: String in SakiConst.EMOTIONS:
+		var t0: int = Time.get_ticks_usec()
+		var anim: Dictionary = pack.get_animation(emotion)
+		var frames: Array = anim.get("frames", [])
+		var frame_size: Vector2 = frames[0].get_size() if not frames.is_empty() else Vector2.ZERO
+		print("  %-12s %d frames %s in %5.1f ms; textures resident: %d, texture memory %.1f MB" % [
+			emotion, frames.size(), frame_size, (Time.get_ticks_usec() - t0) / 1000.0, pack.loaded_texture_count(),
+			Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0])
 
 
 ## One phase: settle 2 s, then count main-loop iterations and CPU time over `seconds`.

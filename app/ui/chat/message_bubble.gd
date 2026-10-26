@@ -4,10 +4,20 @@ extends MarginContainer
 ## monospace panel, still as plain text. Right-click copies the message text.
 ## Label, not RichTextLabel: 20 RichTextLabels with fit_content took ~245 ms to lay out on
 ## the dev machine (vs ~29 ms), which made paging through history stutter.
+##
+## Saki's messages get an avatar column on the left (not in the compact mini chat, where
+## the character itself is visible). The avatar is drawn only on the first message of a
+## run of Saki messages (set_first_in_group); the others keep the empty column so the
+## bubbles stay aligned.
+
+## Pixels from the top of the bubble to the avatar, so it sits level with the first line.
+const AVATAR_TOP: float = 2.0
 
 var uid: int = -1
 
 var _compact: bool = false
+var _avatar_slot: Control = null
+var _avatar: SakiAvatar = null
 var _panel: PanelContainer
 var _box: VBoxContainer
 var _segments_box: VBoxContainer
@@ -32,7 +42,33 @@ func _init(compact: bool = false) -> void:
 	_panel.add_child(_box)
 	_panel.tooltip_text = tr("CHAT_COPY_HINT")
 	_panel.gui_input.connect(_on_panel_input)
-	add_child(_panel)
+	_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if compact:
+		add_child(_panel)
+		return
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	_avatar_slot = Control.new()
+	_avatar_slot.custom_minimum_size = Vector2(SakiAvatar.SIZE, 0)
+	_avatar_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_avatar = SakiAvatar.new()
+	_avatar.position = Vector2(0, AVATAR_TOP)
+	_avatar.size = _avatar.custom_minimum_size
+	_avatar_slot.add_child(_avatar)
+	row.add_child(_avatar_slot)
+	row.add_child(_panel)
+	add_child(row)
+
+
+## Shows the avatar on this message (the first of a run of Saki messages) or leaves its
+## column empty. No effect in compact mode or on the user's messages.
+func set_first_in_group(first: bool) -> void:
+	if _avatar != null:
+		_avatar.visible = first
+
+
+func has_avatar() -> bool:
+	return _avatar_slot != null and _avatar_slot.visible and _avatar.visible
 
 
 func set_message(m: Dictionary) -> void:
@@ -60,6 +96,8 @@ func _apply_role() -> void:
 		"user": &"UserBubble", "assistant": &"AssistantBubble", "system": &"SystemBubble", "error": &"ErrorBubble",
 	}.get(_role, &"AssistantBubble")
 	_panel.theme_type_variation = variation
+	if _avatar_slot != null:
+		_avatar_slot.visible = _role != "user"
 	# User messages on the right, Saki on the left; bubbles never span the full width.
 	var side: int = 48 if not _compact else 20
 	add_theme_constant_override("margin_left", side if _role == "user" else 0)

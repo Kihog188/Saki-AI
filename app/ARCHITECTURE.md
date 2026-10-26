@@ -230,7 +230,9 @@ Ngoài ra không phải sửa gì khác: chế độ, UI và trình quản lý g
 | `services/chat/` | `ChatSession` (mô hình tin nhắn chung), `MoodController` |
 | `services/platform/` | `WindowService` (nhiều màn hình, vùng click-through), `DesktopShortcut` |
 | `renderers/` | lớp cơ sở, bảng đăng ký, `sprite_2d/`, `placeholder/`, bộ dự phòng |
-| `ui/` | thành phần dùng chung (mục 1) |
+| `ui/` | thành phần dùng chung (mục 1); `components/avatar.gd` (`SakiAvatar`: ảnh tròn cạnh tin của Saki, sau này gói có thể đưa ảnh riêng) |
+| `packs/default/` | gói nhân vật có sẵn (Saki, 6 cảm xúc × 6 khung). Thiếu thư mục này thì app dùng `renderers/placeholder/` |
+| `assets/` | `icon.png` (icon project/cửa sổ), `icon.ico` (icon `.exe`), `avatar.png` (import kiểu `Image`) |
 | `modes/` | `chat_window/`, `pet/` |
 | `i18n/strings.csv` | khóa → tiếng Việt |
 | `tests/` | test GUT (`unit/`) và hàm hỗ trợ (`helpers/`) |

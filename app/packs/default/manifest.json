@@ -1,0 +1,90 @@
+{
+  "format": 1,
+  "id": "default",
+  "name": "Saki",
+  "author": "Ahihi",
+  "version": "1.0.0",
+  "license": "",
+  "type": "2d",
+  "thumbnail": "thumb.png",
+  "default_emotion": "neutral",
+  "base_scale": 1.0,
+  "anchor": [
+    0.5,
+    1.0
+  ],
+  "emotions": {
+    "neutral": {
+      "frames": [
+        "neutral_01.png",
+        "neutral_02.png",
+        "neutral_03.png",
+        "neutral_04.png",
+        "neutral_05.png",
+        "neutral_06.png"
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "happy": {
+      "frames": [
+        "happy_01.png",
+        "happy_02.png",
+        "happy_03.png",
+        "happy_04.png",
+        "happy_05.png",
+        "happy_06.png"
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "sad": {
+      "frames": [
+        "sad_01.png",
+        "sad_02.png",
+        "sad_03.png",
+        "sad_04.png",
+        "sad_05.png",
+        "sad_06.png"
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "thinking": {
+      "frames": [
+        "thinking_01.png",
+        "thinking_02.png",
+        "thinking_03.png",
+        "thinking_04.png",
+        "thinking_05.png",
+        "thinking_06.png"
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "surprised": {
+      "frames": [
+        "surprised_01.png",
+        "surprised_02.png",
+        "surprised_03.png",
+        "surprised_04.png",
+        "surprised_05.png",
+        "surprised_06.png"
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "embarrassed": {
+      "frames": [
+        "embarrassed_01.png",
+        "embarrassed_02.png",
+        "embarrassed_03.png",
+        "embarrassed_04.png",
+        "embarrassed_05.png",
+        "embarrassed_06.png"
+      ],
+      "fps": 6,
+      "loop": true
+    }
+  }
+}

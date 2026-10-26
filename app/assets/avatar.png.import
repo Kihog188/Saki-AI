@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://5otaha0f5208"
+path="res://.godot/imported/avatar.png-f03d5a6c5065e8a55e7a6dbfc48bbc05.image"
+
+[deps]
+
+source_file="res://assets/avatar.png"
+dest_files=["res://.godot/imported/avatar.png-f03d5a6c5065e8a55e7a6dbfc48bbc05.image"]
+
+[params]
+

@@ -21,7 +21,7 @@ run/low_processor_mode=true
 run/low_processor_mode_sleep_usec=16000
 boot_splash/bg_color=Color(0, 0, 0, 0)
 boot_splash/show_image=false
-config/icon="res://assets/icon.svg"
+config/icon="res://assets/icon.png"
 config/windows_native_icon="res://assets/icon.ico"
 
 [autoload]

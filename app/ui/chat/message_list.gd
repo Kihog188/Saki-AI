@@ -85,7 +85,14 @@ func _rebuild_bottom() -> void:
 func _make(index: int) -> MessageBubble:
 	var b := MessageBubble.new(compact)
 	b.set_message(_session.messages[index])
+	b.set_first_in_group(_starts_group(index))
 	return b
+
+
+## True if message `index` is the first of a run of Saki messages (only that one shows the
+## avatar). Depends on the message above, which can appear later (older page).
+func _starts_group(index: int) -> bool:
+	return index == 0 or _session.messages[index - 1]["role"] == "user"
 
 
 func _on_added(index: int) -> void:
@@ -140,10 +147,13 @@ func _extend_up() -> void:
 	_shifting = true
 	var new_start: int = maxi(0, _start - STEP)
 	var before_h: float = _box.get_combined_minimum_size().y
+	var old_first: MessageBubble = _box.get_child(0) as MessageBubble if _box.get_child_count() > 0 else null
 	for i: int in range(_start - 1, new_start - 1, -1):
 		var node: MessageBubble = _make(i)
 		_box.add_child(node)
 		_box.move_child(node, 0)
+	if old_first != null:
+		old_first.set_first_in_group(_starts_group(_start)) # its neighbour above is now known
 	_start = new_start
 	_trim_bottom()
 	await get_tree().process_frame

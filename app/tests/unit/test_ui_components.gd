@@ -104,6 +104,53 @@ func test_new_messages_append_and_trim() -> void:
 	assert_eq(list.window().y, _ctx.session.messages.size())
 
 
+func _avatars(list: MessageList) -> Array:
+	var out: Array = []
+	for b: Node in list.get_child(0).get_children():
+		out.append((b as MessageBubble).has_avatar())
+	return out
+
+
+func test_avatar_on_first_saki_message_of_a_group_only() -> void:
+	var roles: Array = ["user", "assistant", "assistant", "user", "assistant", "user"]
+	var rows: Array = []
+	for i: int in roles.size():
+		rows.append({"id": i + 1, "role": roles[i], "content": "tin %d" % i})
+	_http.routes["/history"] = TestFakes.FakeHttp.ok({"messages": rows})
+	var list: MessageList = _mount(MessageList.new())
+	list.setup(_ctx.session)
+	var mini: MessageList = _mount(MessageList.new(true))
+	mini.setup(_ctx.session)
+	await _ctx.session.load_recent()
+	await wait_process_frames(2)
+	assert_eq(_avatars(list), [false, true, false, false, true, false])
+	assert_eq(_avatars(mini), [false, false, false, false, false, false], "no avatar in the pet's mini chat")
+
+
+func test_avatar_moves_when_an_older_page_arrives() -> void:
+	# Newest page: all Saki messages, so only the first one shows the avatar...
+	var rows: Array = []
+	for i: int in range(50, 100):
+		rows.append({"id": i, "role": "assistant", "content": "tin %d" % i})
+	_http.routes["/history"] = TestFakes.FakeHttp.ok({"messages": rows})
+	var list: MessageList = _mount(MessageList.new())
+	list.setup(_ctx.session)
+	await _ctx.session.load_recent()
+	await wait_process_frames(2)
+	assert_true(_avatars(list)[0])
+	# ...until the older page shows that a Saki message came right before it.
+	var older: Array = []
+	for i: int in range(0, 50):
+		older.append({"id": i, "role": "assistant" if i == 49 else "user", "content": "cũ %d" % i})
+	_http.routes["/history"] = TestFakes.FakeHttp.ok({"messages": older})
+	await _ctx.session.load_older()
+	await wait_process_frames(2)
+	var avatars: Array = _avatars(list)
+	var first_new: int = 50 - list.window().x # the node of message 50 (id 50)
+	assert_false(avatars[first_new], "message 50 now follows Saki's message 49")
+	assert_true(avatars[first_new - 1], "message 49 starts the group")
+
+
 func test_bubble_never_interprets_markup() -> void:
 	var b: MessageBubble = _mount(MessageBubble.new())
 	b.set_message({"uid": 1, "role": "assistant", "text": "[color=red]x[/color] [url=javascript:a]y[/url]\n```\n[b]code[/b]\n```", "sources": []})

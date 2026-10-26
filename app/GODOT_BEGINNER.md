@@ -91,7 +91,10 @@ Công cụ chạy tay trong `app\tools\` (không phải test tự động):
 | `godot --headless --path app -s res://tools/backend_smoke.gd` | chạy backend thật với thư mục dữ liệu tạm, gửi `/help`, tắt, kiểm tra không còn tiến trình |
 | `godot --path app -s res://tools/message_list_bench.gd` | đo tốc độ cuộn 1.000 tin nhắn (có cửa sổ) |
 | `godot --path app -s res://tools/ui_snapshot.gd` | lưu ảnh PNG của các cửa sổ app để xem bố cục |
-| `godot --headless --path app -s res://tools/make_icon.gd` | tạo lại `assets/icon.ico` từ `icon.svg` |
+| `godot --path app -s res://tools/measure.gd` | đo RAM, CPU, tốc độ vòng lặp ở hai chế độ, và thời gian nạp từng cảm xúc của gói đang dùng |
+
+Icon của app là `assets/icon.png` (cửa sổ, project) và `assets/icon.ico` (file `.exe`,
+lối tắt, thanh tác vụ). Muốn đổi icon thì thay cả hai file bằng hình mới, rồi export lại.
 
 (`godot` = đường dẫn tới `Godot_v4.7.2-stable_win64_console.exe`.)
 

@@ -1,13 +1,88 @@
 # Handoff: Saki
 
-Last updated: 2026-10-25. For whoever picks up this repo next. How to run the backend and
+Last updated: 2026-10-26. For whoever picks up this repo next. How to run the backend and
 the protocol are in [README.md](README.md). This file covers the current state, what
 changed recently, and what is still open.
+
+## Saki art (`feature/saki-art`, from `feature/simple-packs`)
+
+Spec: the owner's task "install the real Saki character as the built-in pack, and replace
+the app icon". State: done and tested, **not committed** (the owner commits and pushes).
+**After merging, re-export the `.exe`** (Project → Export), because `app/export/Saki.exe`
+still has the old icon and the code-drawn face.
+
+What changed:
+- **Built-in pack.** `app/packs/default/` holds the real Saki art: 6 emotions × 6 frames,
+  392×503, plus `thumb.png` and `manifest.json` (6 fps, loop).
+  - The owner had already placed the folder there; it was byte-identical to
+    `saki_assets/default/`.
+  - The manifest passes the full validator **unchanged** (test copies the files without
+    Godot's `.import` files into a temp folder and runs `PackValidator.validate_folder`).
+  - `PackIndex._builtin_entry` now reports type `2d`, so the placeholder is not used.
+    With the folder absent the placeholder still comes back (test with an empty
+    built-in dir).
+- **Import settings** of the frames are Godot's defaults, which already match: lossless
+  (`compress/mode=0`), no mipmaps. Filtering is not an import setting in Godot 4: the
+  renderer sets Linear from the quality tier (all three tiers use Linear).
+- **Export check** (release export into a scratch folder, then the embedded data opened
+  with `--main-pack` and a check script):
+  - the data has `manifest.json`, 36/36 frames, `thumb.png`, `icon.png` and `avatar.png`;
+  - it has no GUT, tests, tools or `packs/default_pack.zip`;
+  - the `.exe` resource icon is the new Saki face.
+  - No filter change was needed: imported PNGs are exported as resources, and
+    `packs/*/manifest.json` was already included.
+- **Memory** (`tools/measure.gd`, real window, tier "Vừa", every emotion shown once):
+  - each emotion adds ~6 MB of texture memory, 36.6 MB with all six;
+  - first load of an emotion takes 38–60 ms (GPU read-back of the imported texture plus
+    the click-through outlines);
+  - app working set 179–185 MB, against 153–162 MB with the code-drawn face; CPU at idle
+    is still 0 %.
+  - `PackData` keeps every emotion it has shown until the pack changes. Only the
+    active emotion resident would need an eviction policy in `PackData`, which the task
+    said not to write. If RAM gets tight: keep the current animation plus the default
+    emotion, at the cost of a ~50 ms reload when an emotion comes back.
+- **Icon.**
+  - `app/assets/icon.png` is the project/window icon (`config/icon`).
+  - `app/assets/icon.ico` is the provided multi-size icon, used by
+    `config/windows_native_icon` and the export preset.
+  - `icon.svg` and `tools/make_icon.gd` were **deleted**: the ICO is real art now, and
+    the tool would have overwritten it.
+  - README has no icon or screenshot reference to update.
+- **Avatar.**
+  - `app/ui/components/avatar.gd` (`SakiAvatar`, a script class like the other UI
+    pieces, not a `.tscn`): a round 32 px picture with the mask baked once per image and
+    size and the texture shared by all bubbles. `set_image_path()` lets a pack provide
+    its own later.
+  - `avatar.png` is imported as an `Image` resource, so no GPU read-back is needed and
+    it works headless.
+  - `MessageBubble` gets an avatar column for Saki's messages, outside compact mode.
+  - `MessageList` shows the avatar only on the first Saki message of a run, and fixes
+    the boundary when an older history page arrives.
+  - The pet's mini chat (compact) has no avatar.
+- Tests: new `test_builtin_pack.gd` (built-in pack valid and 2d, 6 frames per emotion and
+  imported, placeholder without the folder, avatar loads and is round) and two avatar
+  tests in `test_ui_components.gd` (grouping, mini chat, older page). GUT: 130 passed.
+- Checked visually with `tools/ui_snapshot.gd`: the chat window shows the character and the
+  round avatar level with the first line; the pet shows the character with transparency.
+
+Not verified:
+- **Window icons on screen.** The main window (chat and pet) gets the icon from
+  `config/windows_native_icon` at start-up. Panel windows (Ghi nhớ, Cài đặt, Nhân vật,
+  mini chat) are separate native windows. In the exported `.exe` they should show the
+  exe icon; when run from the editor they may show the Godot icon. Not checked on
+  screen (no desktop captures).
+- Pixel-art look: the art is pixel-style, and Linear filtering softens it slightly when
+  scaled. "Nearest" would keep hard pixels; it is one line in the tier files
+  (`linear_filter`), if the owner prefers it.
+
+Not part of this task and left alone: `app/packs/default_pack.zip`, `saki.png` and
+`Saki.zip` (owner files). Do not commit the zip under `app/packs/` (6.8 MB, not used by
+the app).
 
 ## Simple packs (`feature/simple-packs`, from `feature/godot-app`)
 
 Spec: the owner's task "character packs from a plain folder of images (no manifest, no
-code)". State: done and tested, **not committed** (the owner commits and pushes).
+code)". State: done, committed as `ca77ffd`.
 
 What changed:
 - **A pack without `manifest.json` is valid** (folder or `.sakip`, images at the root or
@@ -344,8 +419,8 @@ it runs the tests, updates this file and gives a suggested commit message.
 - Selecting text in a bubble is not possible (`Label`); right-click copies the message.
 - The backend must be a repo checkout with `.venv`; there is no bundled Python yet.
 - The port is only changeable in `app_settings.json`.
-- The built-in pack (`app/packs/default/`) has no images yet, so the code-drawn
-  placeholder is shown.
+- ~~The built-in pack has no images yet~~: the real Saki art is in since
+  `feature/saki-art`.
 
 ### Next phases
 
